@@ -22,6 +22,6 @@
 hs_err_pid*
 
 # eclipse folders
-.classpath/*
-.project/*
+.classpath
+.project
 .settings/*
