@@ -1,11 +1,16 @@
-from src.config import *
+from ..config import *
 from os import path as osp
+import os
+import sys
 def setClassPath():
-    import sys
-    sys.path.append(artisynth_core_path + '/classes') #'/home/amir/workspace/artisynth_core/classes')
-    sys.path.append(artisynth_core_path + '/scripts') #'/home/amir/workspace/artisynth_core/scripts')
+    sys.path.append(osp.join(os.getcwd(), 'lib/JyNI.jar'))
     sys.path.append('/usr/lib/python3.5')
-    libDir = osp.join(artisynth_core_path, 'lib') #'/home/amir/workspace/artisynth_core/lib/'
+    sys.path.append('/usr/local/lib/python3.5/dist-packages/')
+    sys.path.append(osp.join(artisynth_core_path,'classes'))
+    sys.path.append(osp.join(artisynth_models_path,'classes'))
+    sys.path.append(osp.join(artisynth_projects_path,'classes'))
+    sys.path.append(artisynth_core_path + '/scripts')
+    libDir = osp.join(artisynth_core_path, 'lib')
     classPaths = [
         'argparser.jar',
         'jass.jar',
@@ -41,3 +46,16 @@ from maspack.matrix import *
 from jythonInit import *
 from jythonInit import *
 import jythonInit
+import tensorflow
+
+def start_artisynth():
+    artisynth_main = artisynth.core.driver.Main.getMain()
+    if artisynth_main is not None:
+        artisynth_main.quit()
+    artisynth.core.driver.Main.setMain(None)
+    artisynth.core.driver.Main.main([])
+    artisynth_main = artisynth.core.driver.Main.getMain()
+    return artisynth_main
+
+
+import math
