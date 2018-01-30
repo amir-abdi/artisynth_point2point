@@ -4,6 +4,7 @@ import time
 import json
 from threading import Thread
 import keras
+import numpy as np
 
 # todo: I'm assuming that state is only the two positions (excitations are not part of state)
 
@@ -23,7 +24,7 @@ def calculate_excitations(ref_pos, follow_pos):
 
 
 def calculate_reward(ref_pos, follow_pos):
-    return 3
+    return np.sum((ref_pos - follow_pos)**2)
 
 
 def main():
@@ -58,9 +59,10 @@ def main():
                         data_dict_result = json.loads(data_result)
                         print('positions2: ', data_dict_result)
 
-                        if data_dict['type'] == 'results':
-                            reward = calculate_reward(data_dict_result['ref_pos'],
-                                                      data_dict_result['follow_pos'])
+                        if data_dict_result['type'] == 'results':
+                            ref_pos = np.array([float(str) for str in data_dict_result['ref_pos'].split(" ")])
+                            follow_pos = np.array([float(str) for str in data_dict_result['follow_pos'].split(" ")])
+                            reward = calculate_reward(ref_pos, follow_pos)
                             # backpropagate through NN
                 except Exception as e:
                     print(e)

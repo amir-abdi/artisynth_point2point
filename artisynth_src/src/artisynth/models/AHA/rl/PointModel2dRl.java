@@ -277,7 +277,7 @@ public class PointModel2dRl extends RootModel
          
          JSONObject jo_send_result = new JSONObject ();
          try {
-            jo_send_state.put ("type", "results");
+        	 jo_send_result.put ("type", "results");
             jo_send_result.put ("ref_pos", body_ref.getPosition ());
             jo_send_result.put ("follow_pos", body_follower.getPosition ());
             //print(jo.toString ());
