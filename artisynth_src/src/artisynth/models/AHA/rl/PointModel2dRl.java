@@ -235,7 +235,7 @@ public class PointModel2dRl extends RootModel
 
    double prev_time_step = 0;
    public StepAdjustment advance(double t0, double t1, int flags)
-   {
+   {	   	  
       if (t0 >= prev_time_step + 2)
       {         
          RigidBody body_follower = mech.rigidBodies ().get ("body_follower");

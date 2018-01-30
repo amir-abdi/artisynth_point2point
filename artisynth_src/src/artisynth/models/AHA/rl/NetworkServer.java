@@ -17,11 +17,12 @@ import com.sun.org.apache.xpath.internal.operations.Bool;
 public class NetworkServer extends Thread
 {
    private Socket socket = null;
+   NetworkReceiverHanlder networkReceiveHandler;
    //   private int clientNumber;
 
+   
+   
    public NetworkServer() {
-
-
    }
 
    private void log(String message) {
@@ -38,6 +39,8 @@ public class NetworkServer extends Thread
             while(true)
             {         
                this.socket = listener.accept(); // assuming single client
+               this.networkReceiveHandler = new NetworkReceiverHanlder(socket);
+               this.networkReceiveHandler.start();
                log("New connection with client at " + this.socket);
             }
          }

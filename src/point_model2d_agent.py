@@ -5,16 +5,12 @@ import json
 from threading import Thread
 import keras
 import numpy as np
+from point2d_model_env import PointModel2dEnv
 
 # todo: I'm assuming that state is only the two positions (excitations are not part of state)
 
-muscle_labels = ["n", "nne", "ne", "ene",
-                 "e", "ese", "se", "sse",
-                 "s", "ssw", "sw", "wsw",
-                 "w", "wnw", "nw", "nnw"]
 
-
-def calculate_excitations(ref_pos, follow_pos):
+def calculate_excitations(self, ref_pos, follow_pos):
     # forward pass of NN with positions to get values
     values = [0, 0, 0, 0,
               0, 1, 0, 0,
@@ -22,9 +18,6 @@ def calculate_excitations(ref_pos, follow_pos):
               0, 0, 0, 0]
     return dict(zip(muscle_labels, values))
 
-
-def calculate_reward(ref_pos, follow_pos):
-    return np.sum((ref_pos - follow_pos)**2)
 
 
 def main():
@@ -34,11 +27,14 @@ def main():
     #   send excitations (action)
     #   wait for new location to calculate the reward of the action
 
+
+
     while True:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server_address = ('localhost', 6611)
             sock.connect(server_address)
+            env = PointModel2dEnv(sock)
 
             while True:
                 try:
