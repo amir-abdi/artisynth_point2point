@@ -46,7 +46,7 @@ import artisynth.core.util.ArtisynthPath;
 import artisynth.core.workspace.DriverInterface;
 import artisynth.core.workspace.PullController;
 import artisynth.core.workspace.RootModel;
-import artisynth.models.AHA.rl_test.NetworkServer;
+import artisynth.models.AHA.rl.NetworkServer;
 import jdk.nashorn.internal.ir.debug.JSONWriter;
 import jdk.nashorn.internal.runtime.JSONFunctions;
 import artisynth.core.driver.Main;

@@ -3,6 +3,7 @@ import sys
 import time
 import json
 from threading import Thread
+import keras
 
 # todo: I'm assuming that state is only the two positions (excitations are not part of state)
 
@@ -28,10 +29,10 @@ def calculate_reward(ref_pos, follow_pos):
 def main():
     # in this particular case, not looking for multithreading:
     # loop
-    # wait for new location, block until received
-    # send excitations (action)
-    # wait for new location to calculate the reward of the action
-    # loop
+    #   wait for new location, block until received
+    #   send excitations (action)
+    #   wait for new location to calculate the reward of the action
+
     while True:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -41,6 +42,8 @@ def main():
             while True:
                 try:
                     data = sock.recv(1024).decode("utf-8")
+                    if data is '':
+                        break
                     data_dict = json.loads(data)
                     print('positions1: ', data_dict)
                     if data_dict['type'] == 'state':
@@ -68,7 +71,6 @@ def main():
             print("Server not started: ", e)
             sock.close()
             time.sleep(10)
-
 
 
 if __name__ == "__main__":
