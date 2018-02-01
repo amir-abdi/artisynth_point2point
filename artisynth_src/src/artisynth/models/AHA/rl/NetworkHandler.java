@@ -13,16 +13,17 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.sun.org.apache.xpath.internal.operations.Bool;
+import artisynth.models.AHA.rl.*;
 
-public class NetworkServer extends Thread
+public class NetworkHandler extends Thread
 {
    private Socket socket = null;
-   NetworkReceiverHanlder networkReceiveHandler;
+   NetworkReceiveHanlder networkReceiveHandler;
    //   private int clientNumber;
-
+   PrintWriter out;
    
    
-   public NetworkServer() {
+   public NetworkHandler() {
    }
 
    private void log(String message) {
@@ -39,8 +40,10 @@ public class NetworkServer extends Thread
             while(true)
             {         
                this.socket = listener.accept(); // assuming single client
-               this.networkReceiveHandler = new NetworkReceiverHanlder(socket);
+               this.networkReceiveHandler = 
+            		   new NetworkReceiveHanlder(socket.getInputStream());
                this.networkReceiveHandler.start();
+               out = new PrintWriter(socket.getOutputStream(), true);
                log("New connection with client at " + this.socket);
             }
          }
@@ -48,25 +51,21 @@ public class NetworkServer extends Thread
          {      
             log("Error: " + err.getMessage ()) ;
             socket = null;
+            out = null;
          }
       }
    }
 
 
-   public JSONObject receive() throws JSONException, IOException
-   {
-      //BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));      
-      //char[] cbuf = new char[1024];
-      //in.read (cbuf);
-      //JSONObject jo = new JSONObject (cbuf);
-      
-      byte[] b = new byte[1024];
-      int numbytes = socket.getInputStream().read (b);
-      String s = new String (b);
-      JSONObject jo = new JSONObject (s);
-            
-      return jo;
-   }
+	public JSONObject getMessage()
+	{		
+		if (socket == null)
+			return null;
+		if (networkReceiveHandler == null)
+			return null;
+		return networkReceiveHandler.getMessage();		
+	}
+	
    
    public boolean send(JSONObject object)
    {
@@ -79,14 +78,20 @@ public class NetworkServer extends Thread
       if (!socket.isConnected ())
          return false;
       
-      try {         
-         PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+      try {                  
          out.println(object.toString ());
-         log("data sent: " + object.toString ());
+         out.flush();
+         log("data sent: " + object.toString ());         
          return true;
-      } catch (IOException e) {
+      } catch (Exception e) {
          log("Error handling client" + e);
          return false;
       } 
+   }
+
+   public void closeConnection() throws IOException 
+   {
+	   if (socket.isConnected())
+		   socket.close();
    }
 }

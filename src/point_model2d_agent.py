@@ -1,74 +1,133 @@
+from pathlib import Path
 import socket
 import sys
 import time
 import json
 from threading import Thread
 import keras
+from keras.models import Sequential
+from keras.layers import Dense, Activation, Flatten
+from keras.optimizers import Adam
+from keras.models import Sequential, Model
+from keras.layers import Dense, Activation, Flatten, Input, Concatenate
+from keras.optimizers import Adam
 import numpy as np
-from point2d_model_env import PointModel2dEnv
+from src.point_model2d_env import *
+from rl.agents.dqn import DQNAgent
+from rl.agents.dqn import NAFAgent
+from rl.agents.ddpg import DDPGAgent
+from rl.random import OrnsteinUhlenbeckProcess
 
 # todo: I'm assuming that state is only the two positions (excitations are not part of state)
 
 
-def calculate_excitations(self, ref_pos, follow_pos):
+def calculate_excitations(ref_pos, follow_pos):
     # forward pass of NN with positions to get values
-    values = [0, 0, 0, 0,
-              0, 1, 0, 0,
-              0, 0, 0, 1,
-              0, 0, 0, 0]
+    values = np.random.rand(16)
+    # values = [0, 0, 0, 0,
+    #           0, 1, 0, 0,
+    #           0, 0, 0, 1,
+    #           0, 0, 0, 0]
     return dict(zip(muscle_labels, values))
 
+def my_model(env):
+    # Next, we build a very simple model.
+    model = Sequential()
+    model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
+    # model.add(Dense(16, input_dim=6))
+    model.add(Dense(16))
+    model.add(Activation('relu'))
+    model.add(Dense(16))
+    model.add(Activation('relu'))
+    model.add(Dense(16))
+    model.add(Activation('relu'))
+    model.add(Dense(env.action_space.shape[0]))
+    model.add(Activation('relu'))
+    print(model.summary())
+    return model
+
+def my_actor(env):
+    actor = Sequential()
+    actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))
+    actor.add(Dense(16))
+    actor.add(Activation('relu'))
+    actor.add(Dense(16))
+    actor.add(Activation('relu'))
+    actor.add(Dense(16))
+    actor.add(Activation('relu'))
+    actor.add(Dense(env.action_space.shape[0]))
+    actor.add(Activation('relu'))
+    print(actor.summary())
+    return actor
+
+
+def my_critic(env, action_input):
+    observation_input = Input(shape=(1,) + env.observation_space.shape, name='observation_input')
+    flattened_observation = Flatten()(observation_input)
+    x = Concatenate()([action_input, flattened_observation])
+    x = Dense(32)(x)
+    x = Activation('relu')(x)
+    x = Dense(32)(x)
+    x = Activation('relu')(x)
+    x = Dense(32)(x)
+    x = Activation('relu')(x)
+    x = Dense(1)(x)
+    x = Activation('relu')(x)  # Since reward=1/distance, it's always going to be positive
+    critic = Model(inputs=[action_input, observation_input], outputs=x)
+    print(critic.summary())
+    return critic
 
 
 def main():
-    # in this particular case, not looking for multithreading:
-    # loop
-    #   wait for new location, block until received
-    #   send excitations (action)
-    #   wait for new location to calculate the reward of the action
-
-
-
     while True:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server_address = ('localhost', 6611)
+            sock.setblocking(1)
             sock.connect(server_address)
-            env = PointModel2dEnv(sock)
-
-            while True:
-                try:
-                    data = sock.recv(1024).decode("utf-8")
-                    if data is '':
-                        break
-                    data_dict = json.loads(data)
-                    print('positions1: ', data_dict)
-                    if data_dict['type'] == 'state':
-                        excitations = calculate_excitations(data_dict['ref_pos'],
-                                                            data_dict['follow_pos'])
-                        excitations['type'] = 'excitations'
-                        excitations_json = json.dumps(excitations, ensure_ascii=False).encode('utf-8')
-                        sock.send(excitations_json)
-                        print('Excitations sent')
-
-                        data_result = sock.recv(1024).decode("utf-8")
-                        data_dict_result = json.loads(data_result)
-                        print('positions2: ', data_dict_result)
-
-                        if data_dict_result['type'] == 'results':
-                            ref_pos = np.array([float(str) for str in data_dict_result['ref_pos'].split(" ")])
-                            follow_pos = np.array([float(str) for str in data_dict_result['follow_pos'].split(" ")])
-                            reward = calculate_reward(ref_pos, follow_pos)
-                            # backpropagate through NN
-                except Exception as e:
-                    print(e)
-                    # sock.close()
-                    # time.sleep(10)
-
+            break
         except ConnectionRefusedError as e:
             print("Server not started: ", e)
             sock.close()
             time.sleep(10)
+
+    try:
+        env = PointModel2dEnv(sock)
+        env.seed(123)
+        nb_actions = env.action_space.shape[0]
+        memory = SequentialMemory(limit=50000, window_length=1)
+
+        # DQNAgent
+        # model = my_model(env)
+        # policy = MyBoltzmannQPolicy()
+        # agent = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=10,
+        #                target_model_update=1e-2, policy=policy)
+
+        action_input = Input(shape=(env.action_space.shape[0],), name='action_input')
+        actor = my_actor(env)
+        critic = my_critic(env, action_input)
+        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.3)
+        agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
+                          memory=memory, nb_steps_warmup_critic=100, nb_steps_warmup_actor=100,
+                          random_process=random_process, gamma=.99, target_model_update=1e-3)
+
+        # dqn.processor = PointModel2dProcessor()
+        agent.compile(Adam(lr=1e-5), metrics=['mae'])
+
+        # Okay, now it's time to learn something! We visualize the training here for show, but this
+        # slows down training quite a lot. You can always safely abort the training prematurely using
+        # Ctrl + C.
+        agent.fit(env, nb_steps=50000, visualize=False, verbose=2)
+
+        # After training is done, we save the final weights.
+        agent.save_weights('dqn_{}_weights.h5f'.format('PointModel2D'), overwrite=True)
+
+        # Finally, evaluate our algorithm for 5 episodes.
+        agent.test(env, nb_episodes=5, visualize=True)
+
+    except Exception as e:
+        print("Error in main code:", str(e))
+        raise e
 
 
 if __name__ == "__main__":
