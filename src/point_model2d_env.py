@@ -15,6 +15,8 @@ from src.consts import EPSILON
 import socket
 from typing import Union
 # from typing import get_type_hints
+from rl.agents import DDPGAgent
+from pathlib import Path
 
 muscle_labels = ["n", "nne", "ne", "ene",
                  "e", "ese", "se", "sse",
@@ -27,6 +29,23 @@ So, nb_max_episode_steps is going to be None
 
 Once we reach the terminal state, 'done' is set to True
 '''
+
+
+class MyDDPGAgen(DDPGAgent):
+    def select_action(self, state):
+        batch = self.process_state_batch([state])
+        action = self.actor.predict_on_batch(batch).flatten()
+        assert action.shape == (self.nb_actions,)
+
+        # Apply noise, if a random process is set.
+        if self.training and self.random_process is not None:
+            noise = self.random_process.sample()
+            assert noise.shape == action.shape
+            action += noise
+            action = np.clip(action, 0, 1)  # to avoid using negative and above 1 values for excitations
+
+        return action
+
 
 
 class MyBoltzmannQPolicy(BoltzmannQPolicy):
@@ -80,7 +99,8 @@ class ObservationSpace(Space):
 
 
 class PointModel2dEnv(Env):
-    def __init__(self, sock: socket, dof_action=16, dof_observation=6, success_thres=0.1, verbose=True):
+    def __init__(self, sock: socket, dof_action=16, dof_observation=6, success_thres=0.1,
+                 verbose=2, log_to_file=True, log_file='log'):
         self.sock = sock
         self.verbose = verbose
         self.success_thres = success_thres
@@ -88,24 +108,37 @@ class PointModel2dEnv(Env):
 
         self.action_space = ActionSpace(dof_action)
         self.observation_space = ObservationSpace(dof_observation) #np.random.rand(dof_observation)
+        self.log_to_file = log_to_file
+        if log_to_file:
+            self.logfile, path = PointModel2dEnv.create_log_file(log_file)
+            self.log('Logging into file: ' + path, verbose=1)
 
-    def log(self, obj):
-        print(obj) if self.verbose else lambda: None
+    @staticmethod
+    def create_log_file(log_file):
+        log_counter = 0
+        path = Path.cwd() / '..' / 'logs' / (log_file + str(log_counter))
+        while Path.exists(path):
+            log_counter += 1
+            path = Path.cwd() / '..' / 'logs' / (log_file + str(log_counter))
+        return open(str(path), "w"), str(path)
+
+    def log(self, obj, verbose=2):
+        if self.log_to_file and not self.logfile.closed:
+            self.logfile.writelines(str(obj))
+            self.logfile.write("\n")
+        print(obj) if verbose <= self.verbose else lambda: None
 
     def send(self, obj=dict(), message_type=''):
         obj.update({'type': message_type})
-        # if message_type == 'excitations':
-        #     print(obj)
-        #     print(type(obj))
         json_obj = json.dumps(eval(str(obj)), ensure_ascii=False).encode('utf-8')
-        self.sock.send(json_obj)
+        bytes_sent = self.sock.send(json_obj)
+        if bytes_sent < json_obj.__len__():
+            print('Data not sent completely: ' + str(bytes_sent) + ' < ' +
+                  str(json_obj.__len__()))
         self.log('obj sent: ' + str(obj))
 
     def receive(self):
         res = self.sock.recv(1024).decode("utf-8")
-        # print('raw rec: ', res)
-        # if res == "":
-        #     return None
         self.log('obj rec: ' + str(res))
         try:
             data_dict_result = json.loads(res)
@@ -142,7 +175,7 @@ class PointModel2dEnv(Env):
                 state = PointModel2dEnv.parse_state(rec_dict)
                 return state
         except:
-            print('WHAT')
+            self.log('Error in get_state')
         return None
 
     def set_state(self, state):

@@ -60,6 +60,11 @@ public class PointModel2dRl extends RootModel
 	public static final Vector3d zero = new Vector3d();
 	Vector3d disturbance = new Vector3d();
 
+	public PointModel2dRl()
+	{
+		Log.logging = true;
+	}
+	
 	NetworkHandler networkHandler;
 	boolean applyDisturbance = false;
 
@@ -222,6 +227,11 @@ public class PointModel2dRl extends RootModel
 		Vector3d targetVec = new Vector3d(rand.nextDouble ()-0.5, 
 				rand.nextDouble ()-0.5, 
 				rand.nextDouble ()-0.5);
+		if (myDemoType == DemoType.Point2d)
+			targetVec.y = 0; 	 
+		if (myDemoType == DemoType.Point1d)
+			targetVec.z = 0; 	 
+		
 		targetVec = targetVec.scale (radius*2);
 		Point3d targetPnt = new Point3d (targetVec.x, targetVec.y, targetVec.z);
 		return targetPnt;

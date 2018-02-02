@@ -26,10 +26,6 @@ public class NetworkHandler extends Thread
    public NetworkHandler() {
    }
 
-   private void log(String message) {
-      System.out.println(message);
-   }
-
    public void run() 
    {
       while(true)
@@ -44,12 +40,12 @@ public class NetworkHandler extends Thread
             		   new NetworkReceiveHanlder(socket.getInputStream());
                this.networkReceiveHandler.start();
                out = new PrintWriter(socket.getOutputStream(), true);
-               log("New connection with client at " + this.socket);
+               Log.log("New connection with client at " + this.socket);
             }
          }
          catch (IOException err) 
          {      
-            log("Error: " + err.getMessage ()) ;
+            Log.log("Error: " + err.getMessage ()) ;
             socket = null;
             out = null;
          }
@@ -71,7 +67,7 @@ public class NetworkHandler extends Thread
    {
       if (socket == null)
       {
-         log("Socket is null, no client connection");
+         Log.log("Socket is null, no client connection");
          return false;         
       }
       
@@ -81,10 +77,10 @@ public class NetworkHandler extends Thread
       try {                  
          out.println(object.toString ());
          out.flush();
-         log("data sent: " + object.toString ());         
+         Log.log("data sent: " + object.toString ());         
          return true;
       } catch (Exception e) {
-         log("Error handling client" + e);
+         Log.log("Error handling client" + e);
          return false;
       } 
    }

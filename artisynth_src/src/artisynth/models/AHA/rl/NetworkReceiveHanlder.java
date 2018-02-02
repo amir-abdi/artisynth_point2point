@@ -15,7 +15,7 @@ import org.json.JSONObject;
 import com.sun.xml.internal.ws.api.pipe.ThrowableContainerPropertySet;
 
 public class NetworkReceiveHanlder extends Thread
-{
+{	
 	InputStream in;
 	Queue<JSONObject> jsonObjects;
 	public ReentrantLock lock = new ReentrantLock();
@@ -34,15 +34,15 @@ public class NetworkReceiveHanlder extends Thread
 
 				if (jo != null)
 				{
-					log("Obj received: " + jo.toString());
+					Log.log("Obj received: " + jo.toString());
 					try {	
 						lock.lock();
 						jsonObjects.add(jo);
-						log("Queue size after add: " + jsonObjects.size());	
+						Log.log("Queue size after add: " + jsonObjects.size());	
 					}
 					catch (Exception e)
 					{
-						log("Error in NetowkrReceive run: " + e.getMessage());
+						Log.log("Error in NetowkrReceive run: " + e.getMessage());
 					} finally {
 						//lock.notify();
 						lock.unlock();					
@@ -51,16 +51,16 @@ public class NetworkReceiveHanlder extends Thread
 
 			}catch(SocketException e)
 			{
-				log("SocketException in receiveJsonObject: " + e.getMessage());
+				Log.log("SocketException in receiveJsonObject: " + e.getMessage());
 				in = null;
-				log("Closing the receive thread");
+				Log.log("Closing the receive thread");
 				break;
 			} catch(IOException e)
 			{
-				log("IOException in receiveJsonObject: " + e.getMessage());
+				Log.log("IOException in receiveJsonObject: " + e.getMessage());
 			} catch(JSONException e)
 			{
-				log("JSONException in receiveJsonObject: " + e.getMessage());
+				Log.log("JSONException in receiveJsonObject: " + e.getMessage());
 			}
 		}
 	}
@@ -76,9 +76,10 @@ public class NetworkReceiveHanlder extends Thread
 			{
 				lock.lock();
 				jo = jsonObjects.remove();
-				log("Queue size after remove: " + jsonObjects.size());				
+				Log.log("Removed from Queue: " + jo.getString("type"));
+				Log.log("Queue size after remove: " + jsonObjects.size());				
 			} catch(Exception e) {
-				log("Exception in getMessage: " + e.getMessage());
+				Log.log("Exception in getMessage: " + e.getMessage());
 			} finally {
 				//lock.notify();
 				lock.unlock();			
@@ -102,15 +103,12 @@ public class NetworkReceiveHanlder extends Thread
 		try {
 			jo = new JSONObject (s);
 		} catch(JSONException e) {		
-			log("Error in receiveJsonObject: " + e.getMessage());
+			Log.log("Error in receiveJsonObject: " + e.getMessage());
 			throw new JSONException(s);
 		}
 		return jo;		
 	}
 
-	private void log(String message) {
-		System.out.println(message);
-	}
-
+	
 
 }
