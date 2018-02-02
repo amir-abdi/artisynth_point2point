@@ -55,7 +55,7 @@ def my_actor(env):
     actor.add(Activation('relu'))
     actor.add(Dense(env.action_space.shape[0]))
 
-    actor.add(Activation('sigmoid'))
+    actor.add(Activation(mylogistic))
     print(actor.summary())
     return actor
 
@@ -78,7 +78,7 @@ def my_critic(env, action_input):
 
 
 def main():
-    get_custom_objects().update({'custom_activation': Activation(mylogistic)})
+    get_custom_objects().update({'mylogistic': Activation(mylogistic)})
 
     while True:
         try:
@@ -106,7 +106,7 @@ def main():
         action_input = Input(shape=(env.action_space.shape[0],), name='action_input')
         actor = my_actor(env)
         critic = my_critic(env, action_input)
-        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.1, dt=1e-1)
+        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.3, dt=1e-1)
         agent = MyDDPGAgen(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
                           memory=memory, nb_steps_warmup_critic=100, nb_steps_warmup_actor=100,
                           random_process=random_process, gamma=.99, target_model_update=1e-3)
