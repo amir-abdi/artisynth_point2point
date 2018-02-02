@@ -17,18 +17,11 @@ from rl.agents.dqn import DQNAgent
 from rl.agents.dqn import NAFAgent
 from rl.agents.ddpg import DDPGAgent
 from rl.random import OrnsteinUhlenbeckProcess
+from keras import backend as K
+from keras.utils.generic_utils import get_custom_objects
 
 # todo: I'm assuming that state is only the two positions (excitations are not part of state)
 
-
-def calculate_excitations(ref_pos, follow_pos):
-    # forward pass of NN with positions to get values
-    values = np.random.rand(16)
-    # values = [0, 0, 0, 0,
-    #           0, 1, 0, 0,
-    #           0, 0, 0, 1,
-    #           0, 0, 0, 0]
-    return dict(zip(muscle_labels, values))
 
 def my_model(env):
     # Next, we build a very simple model.
@@ -46,6 +39,11 @@ def my_model(env):
     print(model.summary())
     return model
 
+
+def mylogistic(x):
+    return 1 / (1 + K.exp(-0.1 * x))
+
+
 def my_actor(env):
     actor = Sequential()
     actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))
@@ -56,7 +54,8 @@ def my_actor(env):
     actor.add(Dense(16))
     actor.add(Activation('relu'))
     actor.add(Dense(env.action_space.shape[0]))
-    actor.add(Activation('relu'))
+
+    actor.add(Activation('sigmoid'))
     print(actor.summary())
     return actor
 
@@ -79,6 +78,8 @@ def my_critic(env, action_input):
 
 
 def main():
+    get_custom_objects().update({'custom_activation': Activation(mylogistic)})
+
     while True:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -90,9 +91,8 @@ def main():
             print("Server not started: ", e)
             sock.close()
             time.sleep(10)
-
     try:
-        env = PointModel2dEnv(sock)
+        env = PointModel2dEnv(sock, verbose=2)
         env.seed(123)
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
@@ -106,8 +106,8 @@ def main():
         action_input = Input(shape=(env.action_space.shape[0],), name='action_input')
         actor = my_actor(env)
         critic = my_critic(env, action_input)
-        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.3)
-        agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
+        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.1, dt=1e-1)
+        agent = MyDDPGAgen(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
                           memory=memory, nb_steps_warmup_critic=100, nb_steps_warmup_actor=100,
                           random_process=random_process, gamma=.99, target_model_update=1e-3)
 
