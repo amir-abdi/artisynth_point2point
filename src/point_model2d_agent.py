@@ -19,6 +19,7 @@ from rl.agents.ddpg import DDPGAgent
 from rl.random import OrnsteinUhlenbeckProcess
 from keras import backend as K
 from keras.utils.generic_utils import get_custom_objects
+from pathlib import Path
 
 # todo: I'm assuming that state is only the two positions (excitations are not part of state)
 
@@ -107,23 +108,24 @@ def main():
         actor = my_actor(env)
         critic = my_critic(env, action_input)
         random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.3, dt=1e-1)
-        agent = MyDDPGAgen(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
+        agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
                           memory=memory, nb_steps_warmup_critic=100, nb_steps_warmup_actor=100,
-                          random_process=random_process, gamma=.99, target_model_update=1e-3)
+                          random_process=random_process, gamma=.99, target_model_update=1e-3,
+                          )
+        agent.nb_max_episode_steps = 200
 
         # dqn.processor = PointModel2dProcessor()
         agent.compile(Adam(lr=1e-5), metrics=['mae'])
 
-        # Okay, now it's time to learn something! We visualize the training here for show, but this
-        # slows down training quite a lot. You can always safely abort the training prematurely using
-        # Ctrl + C.
         agent.fit(env, nb_steps=50000, visualize=False, verbose=2)
+        print('Training complete')
+        agent.save_weights('AC_{}_weights.h5f'.format('PointModel2D'), overwrite=True)
+        print('results saved to ', str(Path.cwd() / 'AC_{}_weights.h5f'))
 
-        # After training is done, we save the final weights.
-        agent.save_weights('dqn_{}_weights.h5f'.format('PointModel2D'), overwrite=True)
-
-        # Finally, evaluate our algorithm for 5 episodes.
-        agent.test(env, nb_episodes=5, visualize=True)
+        # test code
+        # filename = 'trained_AC_PointModel2D_weights.h5f'
+        # agent.load_weights(str(Path.cwd() / filename))
+        # agent.test(env, nb_episodes=5, visualize=True)
 
     except Exception as e:
         print("Error in main code:", str(e))
@@ -132,3 +134,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+

@@ -31,7 +31,7 @@ Once we reach the terminal state, 'done' is set to True
 '''
 
 
-class MyDDPGAgen(DDPGAgent):
+class MyDDPGAgent(DDPGAgent):
     def select_action(self, state):
         batch = self.process_state_batch([state])
         action = self.actor.predict_on_batch(batch).flatten()
@@ -42,6 +42,7 @@ class MyDDPGAgen(DDPGAgent):
             noise = self.random_process.sample()
             assert noise.shape == action.shape
             action += noise
+            # the below is not necessary if using logistic or sigmoid activations
             action = np.clip(action, 0, 1)  # to avoid using negative and above 1 values for excitations
 
         return action
@@ -131,10 +132,13 @@ class PointModel2dEnv(Env):
     def send(self, obj=dict(), message_type=''):
         obj.update({'type': message_type})
         json_obj = json.dumps(eval(str(obj)), ensure_ascii=False).encode('utf-8')
+        objlen = json_obj.__len__()
+        self.sock.send((objlen).to_bytes(4, byteorder='big'))
         bytes_sent = self.sock.send(json_obj)
-        if bytes_sent < json_obj.__len__():
+        while bytes_sent < objlen:
             print('Data not sent completely: ' + str(bytes_sent) + ' < ' +
                   str(json_obj.__len__()))
+            bytes_sent = self.sock.send(json_obj)
         self.log('obj sent: ' + str(obj))
 
     def receive(self):
@@ -170,12 +174,21 @@ class PointModel2dEnv(Env):
     def get_state(self):
         self.send(message_type='getState')
         rec_dict = self.receive()
+        while True:
+            try:
+                if rec_dict['type'] == 'state':
+                    break
+                else:
+                    rec_dict = self.receive()
+            except:
+                rec_dict = self.receive()
+
+        # if rec_dict['type'] == 'state':
         try:
-            if rec_dict['type'] == 'state':
-                state = PointModel2dEnv.parse_state(rec_dict)
-                return state
+            state = PointModel2dEnv.parse_state(rec_dict)
+            return state
         except:
-            self.log('Error in get_state')
+            self.log('Error in parsing get_state')
         return None
 
     def set_state(self, state):

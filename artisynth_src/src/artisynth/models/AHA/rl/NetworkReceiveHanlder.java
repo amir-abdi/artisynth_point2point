@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.locks.Lock;
@@ -89,22 +90,28 @@ public class NetworkReceiveHanlder extends Thread
 	}
 
 
+	byte[] b = new byte[1024];
+	byte[] int_bytes = new byte[4];
 	private JSONObject receiveJsonObject() throws JSONException, IOException, SocketException
 	{
-		byte[] b = new byte[1024];
+		
 		if (in == null)		
 			throw new SocketException("Socket is closed");
 		
-		int numbytes = in.read (b);
+		int bBytesToRead = in.read(int_bytes, 0, 4);		
+		assert(bBytesToRead == 4);
+		ByteBuffer wrapped = ByteBuffer.wrap(int_bytes);
+		
+		int bytesToRead = wrapped.getInt(); 
+		int numbytes = in.read (b, 0, bytesToRead);
 		if (numbytes <= 0)
-			return null;
-		String s = new String (b);
+			return null;		
 		JSONObject jo = null;
 		try {
-			jo = new JSONObject (s);
+			jo = new JSONObject (new String (b));
 		} catch(JSONException e) {		
 			Log.log("Error in receiveJsonObject: " + e.getMessage());
-			throw new JSONException(s);
+			throw new JSONException(new String (b));
 		}
 		return jo;		
 	}
