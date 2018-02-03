@@ -1,6 +1,9 @@
+from fileinput import filename
 from pathlib import Path
 import socket
 import sys
+from src.config import keras_rl_path
+sys.path.append(keras_rl_path)
 import time
 import json
 from threading import Thread
@@ -28,7 +31,6 @@ def my_model(env):
     # Next, we build a very simple model.
     model = Sequential()
     model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
-    # model.add(Dense(16, input_dim=6))
     model.add(Dense(16))
     model.add(Activation('relu'))
     model.add(Dense(16))
@@ -50,10 +52,10 @@ def my_actor(env):
     actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))
     actor.add(Dense(16))
     actor.add(Activation('relu'))
-    actor.add(Dense(16))
-    actor.add(Activation('relu'))
-    actor.add(Dense(16))
-    actor.add(Activation('relu'))
+    # actor.add(Dense(16))
+    # actor.add(Activation('relu'))
+    # actor.add(Dense(16))
+    # actor.add(Activation('relu'))
     actor.add(Dense(env.action_space.shape[0]))
 
     actor.add(Activation(mylogistic))
@@ -65,10 +67,10 @@ def my_critic(env, action_input):
     observation_input = Input(shape=(1,) + env.observation_space.shape, name='observation_input')
     flattened_observation = Flatten()(observation_input)
     x = Concatenate()([action_input, flattened_observation])
-    x = Dense(32)(x)
-    x = Activation('relu')(x)
-    x = Dense(32)(x)
-    x = Activation('relu')(x)
+    # x = Dense(32)(x)
+    # x = Activation('relu')(x)
+    # x = Dense(32)(x)
+    # x = Activation('relu')(x)
     x = Dense(32)(x)
     x = Activation('relu')(x)
     x = Dense(1)(x)
@@ -77,6 +79,13 @@ def my_critic(env, action_input):
     print(critic.summary())
     return critic
 
+
+def load_weights(agent, weight_filename ):
+    import os
+    filename_temp, extension = os.path.splitext(weight_filename )
+    if Path.exists((Path.cwd() / (filename_temp + '_actor.h5f'))):
+        agent.load_weights(str(Path.cwd() / weight_filename ))
+        print('weights loaded from ', str(Path.cwd() / weight_filename ))
 
 def main():
     get_custom_objects().update({'mylogistic': Activation(mylogistic)})
@@ -93,10 +102,13 @@ def main():
             sock.close()
             time.sleep(10)
     try:
-        env = PointModel2dEnv(sock, verbose=2)
+        env = PointModel2dEnv(sock, verbose=1)
         env.seed(123)
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
+
+        model_name = 'PointModel2D_tinyNet'
+        weight_filename = 'AC_{}_weights.h5f'.format(model_name)
 
         # DQNAgent
         # model = my_model(env)
@@ -107,23 +119,23 @@ def main():
         action_input = Input(shape=(env.action_space.shape[0],), name='action_input')
         actor = my_actor(env)
         critic = my_critic(env, action_input)
-        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.3, dt=1e-1)
-        agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
+        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.15, dt=1e-1)
+        agent = MyDDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
                           memory=memory, nb_steps_warmup_critic=100, nb_steps_warmup_actor=100,
                           random_process=random_process, gamma=.99, target_model_update=1e-3,
                           )
-        agent.nb_max_episode_steps = 200
-
         # dqn.processor = PointModel2dProcessor()
-        agent.compile(Adam(lr=1e-5), metrics=['mae'])
+        agent.compile(Adam(lr=1e-4), metrics=['mae'])
+        load_weights(agent, weight_filename)
 
-        agent.fit(env, nb_steps=50000, visualize=False, verbose=2)
+        agent.fit(env, nb_steps=500000, visualize=False, verbose=2, nb_max_episode_steps=300)
         print('Training complete')
-        agent.save_weights('AC_{}_weights.h5f'.format('PointModel2D'), overwrite=True)
-        print('results saved to ', str(Path.cwd() / 'AC_{}_weights.h5f'))
+        agent.save_weights(weight_filename, overwrite=True)
+        print('results saved to ', weight_filename)
 
         # test code
-        # filename = 'trained_AC_PointModel2D_weights.h5f'
+        # env.log_to_file = False
+
         # agent.load_weights(str(Path.cwd() / filename))
         # agent.test(env, nb_episodes=5, visualize=True)
 
