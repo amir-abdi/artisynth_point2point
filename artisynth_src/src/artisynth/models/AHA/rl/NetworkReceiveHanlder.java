@@ -93,8 +93,7 @@ public class NetworkReceiveHanlder extends Thread
 	byte[] b = new byte[1024];
 	byte[] int_bytes = new byte[4];
 	private JSONObject receiveJsonObject() throws JSONException, IOException, SocketException
-	{
-		
+	{		
 		if (in == null)		
 			throw new SocketException("Socket is closed");
 		

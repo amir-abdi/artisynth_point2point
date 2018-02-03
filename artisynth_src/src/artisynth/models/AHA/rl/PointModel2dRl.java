@@ -266,8 +266,13 @@ public class PointModel2dRl extends RootModel
 	}
 
 
-	private void sendState() 
+	private void sendState()
 	{
+		try {
+		Thread.sleep(200);
+		} catch (InterruptedException e) {
+			Log.log("Error in sleep sendState: " + e.getMessage());
+		}
 		JSONObject jo_send_state = new JSONObject ();
 		RigidBody body_ref = mech.rigidBodies ().get ("body_ref");
 		RigidBody body_follower = mech.rigidBodies ().get ("body_follower");

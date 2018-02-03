@@ -42,7 +42,7 @@ class MyDDPGAgent(DDPGAgent):
             noise = self.random_process.sample()
             assert noise.shape == action.shape
             action += noise
-            # the below is not necessary if using logistic or sigmoid activations
+            # the below is necessary even if using logistic or sigmoid activations (because of noise)
             action = np.clip(action, 0, 1)  # to avoid using negative and above 1 values for excitations
 
         return action
@@ -108,7 +108,7 @@ class PointModel2dEnv(Env):
         self.state = None
 
         self.action_space = ActionSpace(dof_action)
-        self.observation_space = ObservationSpace(dof_observation) #np.random.rand(dof_observation)
+        self.observation_space = ObservationSpace(dof_observation)  # np.random.rand(dof_observation)
         self.log_to_file = log_to_file
         if log_to_file:
             self.logfile, path = PointModel2dEnv.create_log_file(log_file)
@@ -131,7 +131,11 @@ class PointModel2dEnv(Env):
 
     def send(self, obj=dict(), message_type=''):
         obj.update({'type': message_type})
-        json_obj = json.dumps(eval(str(obj)), ensure_ascii=False).encode('utf-8')
+        try:
+            json_obj = json.dumps(eval(str(obj)), ensure_ascii=False).encode('utf-8')
+        except NameError as err:
+            self.log('error in send: ' + str(err))
+
         objlen = json_obj.__len__()
         self.sock.send((objlen).to_bytes(4, byteorder='big'))
         bytes_sent = self.sock.send(json_obj)

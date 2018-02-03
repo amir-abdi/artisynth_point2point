@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/artisynth_rl.iml" filepath="$PROJECT_DIR$/.idea/artisynth_rl.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../keras-rl/.idea/keras-rl.iml" filepath="$PROJECT_DIR$/../keras-rl/.idea/keras-rl.iml" />
     </modules>
   </component>
 </project>
