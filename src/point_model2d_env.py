@@ -146,10 +146,14 @@ class PointModel2dEnv(Env):
         self.log('obj sent: ' + str(obj))
 
     def receive(self):
-        res = self.sock.recv(1024).decode("utf-8")
-        self.log('obj rec: ' + str(res))
+        import struct
+        rec_int_bytes = self.sock.recv(4) #.decode("utf-8")
+        # rec_int = int(rec_int_bytes)  #int.from_bytes(rec_int_bytes, byteorder='big')
+        rec_int = struct.unpack("!i", rec_int_bytes)[0]
+        rec = self.sock.recv(rec_int).decode("utf-8")
+        self.log('obj rec: ' + str(rec))
         try:
-            data_dict_result = json.loads(res)
+            data_dict_result = json.loads(rec)
             return data_dict_result
         except json.decoder.JSONDecodeError as e:
             self.log('error in receive: ' + str(e))
@@ -170,6 +174,7 @@ class PointModel2dEnv(Env):
             follower_pos = state[3:6]
             distance = self.calculate_distance(ref_pos, follower_pos)
             reward = self.calculate_reward(distance)
+            self.log('Reward: ' + str(reward))
             done = True if distance < self.success_thres else False
             if done:
                 self.log('Achieved done state')
@@ -229,14 +234,19 @@ class PointModel2dEnv(Env):
                   0, 0, 0, 0]
         return dict(zip(muscle_labels, values))
 
+    @staticmethod
+    def calculate_reward(ref_pos, follow_pos, exp=True):
+        if exp:
+            return np.exp(-PointModel2dEnv.calculate_distance(ref_pos, follow_pos))
+        else:
+            return 1/(PointModel2dEnv.calculate_distance(ref_pos, follow_pos) + EPSILON)
 
     @staticmethod
-    def calculate_reward(ref_pos, follow_pos):
-        return 1/(PointModel2dEnv.calculate_distance(ref_pos, follow_pos) + EPSILON)
-
-    @staticmethod
-    def calculate_reward(distance):
-        return 1/(distance + EPSILON)
+    def calculate_reward(distance, exp=True):
+        if exp:
+            return np.exp(-distance)
+        else:
+            return 1/(distance + EPSILON)
 
     @staticmethod
     def calculate_distance(a, b):

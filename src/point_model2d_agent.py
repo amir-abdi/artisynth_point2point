@@ -102,7 +102,7 @@ def main():
             sock.close()
             time.sleep(10)
     try:
-        env = PointModel2dEnv(sock, verbose=1)
+        env = PointModel2dEnv(sock, verbose=2)
         env.seed(123)
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
@@ -119,7 +119,7 @@ def main():
         action_input = Input(shape=(env.action_space.shape[0],), name='action_input')
         actor = my_actor(env)
         critic = my_critic(env, action_input)
-        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.15, dt=1e-1)
+        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.35, dt=1e-1)
         agent = MyDDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
                           memory=memory, nb_steps_warmup_critic=100, nb_steps_warmup_actor=100,
                           random_process=random_process, gamma=.99, target_model_update=1e-3,
@@ -128,7 +128,7 @@ def main():
         agent.compile(Adam(lr=1e-4), metrics=['mae'])
         load_weights(agent, weight_filename)
 
-        agent.fit(env, nb_steps=500000, visualize=False, verbose=2, nb_max_episode_steps=300)
+        agent.fit(env, nb_steps=500000, visualize=False, verbose=2, nb_max_episode_steps=2000)
         print('Training complete')
         agent.save_weights(weight_filename, overwrite=True)
         print('results saved to ', weight_filename)
