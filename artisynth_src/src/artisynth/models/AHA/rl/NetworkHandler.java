@@ -1,19 +1,12 @@
 package artisynth.models.AHA.rl;
 
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Date;
 
-import org.json.JSONException;
 import org.json.JSONObject;
-
-import com.sun.org.apache.xpath.internal.operations.Bool;
-import artisynth.models.AHA.rl.*;
 
 public class NetworkHandler extends Thread
 {

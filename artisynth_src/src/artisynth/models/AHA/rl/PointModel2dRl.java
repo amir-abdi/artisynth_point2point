@@ -1,15 +1,35 @@
 package artisynth.models.AHA.rl;
 
 import java.awt.Color;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
 
-import maspack.json.JSONFactory;
-import maspack.json.JSONParser;
-import maspack.json.JSONReader;
-import maspack.json.JSONTokenizer;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import artisynth.core.gui.ControlPanel;
+import artisynth.core.inverse.ForceTarget;
+import artisynth.core.inverse.ForceTargetTerm;
+import artisynth.core.inverse.TrackingController;
+import artisynth.core.materials.LinearAxialMuscle;
+import artisynth.core.mechmodels.AxialSpring;
+import artisynth.core.mechmodels.FrameMarker;
+import artisynth.core.mechmodels.MechModel;
+import artisynth.core.mechmodels.MechSystemSolver.Integrator;
+import artisynth.core.mechmodels.MotionTargetComponent;
+import artisynth.core.mechmodels.Muscle;
+import artisynth.core.mechmodels.Particle;
+import artisynth.core.mechmodels.Point;
+import artisynth.core.mechmodels.RigidBody;
+import artisynth.core.modelbase.Controller;
+import artisynth.core.modelbase.Model;
+import artisynth.core.modelbase.StepAdjustment;
+import artisynth.core.util.ArtisynthIO;
+import artisynth.core.util.ArtisynthPath;
+import artisynth.core.workspace.DriverInterface;
+import artisynth.core.workspace.PullController;
+import artisynth.core.workspace.RootModel;
 import maspack.matrix.Point3d;
 import maspack.matrix.RigidTransform3d;
 import maspack.matrix.SparseBlockMatrix;
@@ -20,38 +40,6 @@ import maspack.render.Renderer;
 import maspack.render.Renderer.LineStyle;
 import maspack.render.Renderer.Shading;
 import maspack.spatialmotion.SpatialInertia;
-import artisynth.core.gui.ControlPanel;
-import artisynth.core.inverse.ConnectorForceRenderer;
-import artisynth.core.inverse.ForceTarget;
-import artisynth.core.inverse.ForceTargetTerm;
-import artisynth.core.inverse.TrackingController;
-import artisynth.core.materials.LinearAxialMuscle;
-import artisynth.core.mechmodels.AxialSpring;
-import artisynth.core.mechmodels.FrameMarker;
-import artisynth.core.mechmodels.MechModel;
-import artisynth.core.mechmodels.MechSystemSolver.Integrator;
-import artisynth.core.modelbase.Controller;
-import artisynth.core.modelbase.Model;
-import artisynth.core.modelbase.StepAdjustment;
-import artisynth.core.probes.InputProbe;
-import artisynth.core.probes.NumericInputProbe;
-import artisynth.core.mechmodels.MotionTargetComponent;
-import artisynth.core.mechmodels.Muscle;
-import artisynth.core.mechmodels.Particle;
-import artisynth.core.mechmodels.Point;
-import artisynth.core.mechmodels.RigidBody;
-import artisynth.core.mechmodels.SphericalJoint;
-import artisynth.core.util.ArtisynthIO;
-import artisynth.core.util.ArtisynthPath;
-import artisynth.core.workspace.DriverInterface;
-import artisynth.core.workspace.PullController;
-import artisynth.core.workspace.RootModel;
-import artisynth.models.AHA.rl.NetworkHandler;
-import jdk.nashorn.internal.ir.debug.JSONWriter;
-import jdk.nashorn.internal.runtime.JSONFunctions;
-import artisynth.core.driver.Main;
-
-import org.json.*;
 
 public class PointModel2dRl extends RootModel
 {
@@ -232,7 +220,7 @@ public class PointModel2dRl extends RootModel
 		if (myDemoType == DemoType.Point1d)
 			targetVec.z = 0; 	 
 		
-		targetVec = targetVec.scale (radius*2);
+		targetVec.scale (radius*2);
 		Point3d targetPnt = new Point3d (targetVec.x, targetVec.y, targetVec.z);
 		return targetPnt;
 	}

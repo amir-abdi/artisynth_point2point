@@ -2,18 +2,14 @@ package artisynth.models.AHA.rl;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.Socket;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import com.sun.xml.internal.ws.api.pipe.ThrowableContainerPropertySet;
 
 public class NetworkReceiveHanlder extends Thread
 {	
