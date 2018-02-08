@@ -18,10 +18,9 @@ from pathlib import Path
 def load_weights(agent, weight_filename):
     import os
     filename_temp, extension = os.path.splitext(weight_filename)
-    trained_dir = (Path.cwd() / trained_directory_path).absolute()
-    if Path.exists((trained_dir / (filename_temp + '_actor.h5f'))):
-        agent.load_weights(str(trained_dir / weight_filename))
-        print('weights loaded from ', str(trained_dir / weight_filename ))
+    if Path.exists(Path(filename_temp + '_actor.h5f')):
+        agent.load_weights(str(weight_filename))
+        print('weights loaded from ', str(weight_filename ))
 
 
 def main():
@@ -46,7 +45,7 @@ def main():
         memory = SequentialMemory(limit=50000, window_length=1)
 
         model_name = 'PointModel2D_middleSizeNet_myLogistic_moveReward'
-        weight_filename = 'AC_{}_weights.h5f'.format(model_name)
+        weight_filename = str(Path.cwd() / trained_directory_path / 'AC_{}_weights.h5f'.format(model_name))
 
         # DQNAgent
         # model = my_model(env)
@@ -64,7 +63,7 @@ def main():
                           )
 
         # dqn.processor = PointModel2dProcessor()
-        agent.compile(Adam(lr=1e+0), metrics=['mae'])
+        agent.compile(Adam(lr=1e+0), metrics=['mse'])
         load_weights(agent, weight_filename)
 
         agent.fit(env, nb_steps=500000, visualize=False, verbose=2, nb_max_episode_steps=2000)
