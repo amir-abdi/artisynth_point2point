@@ -3,7 +3,8 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
 from keras.optimizers import Adam
 
-
+import time
+from socket import timeout as TimeoutException
 from rl.policy import BoltzmannQPolicy
 from rl.memory import SequentialMemory
 from rl.core import Env
@@ -17,18 +18,78 @@ from typing import Union
 # from typing import get_type_hints
 from rl.agents import DDPGAgent
 from pathlib import Path
+from keras.layers import Dense, Activation, Flatten, Input, Concatenate
+import time
+import json
+from threading import Thread
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Activation, Flatten
+from keras.optimizers import Adam
+from keras.models import Sequential, Model
+from keras.layers import Dense, Activation, Flatten, Input, Concatenate
+from keras.optimizers import Adam
+from keras import backend as K
+
 
 muscle_labels = ["n", "nne", "ne", "ene",
                  "e", "ese", "se", "sse",
                  "s", "ssw", "sw", "wsw",
                  "w", "wnw", "nw", "nnw"]
 
-'''
-Here, I'm assuming each episode to run until it reaches the ref_pos
-So, nb_max_episode_steps is going to be None
 
-Once we reach the terminal state, 'done' is set to True
-'''
+def my_model(env):
+    # Next, we build a very simple model.
+    model = Sequential()
+    model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
+    model.add(Dense(16))
+    model.add(Activation('relu'))
+    model.add(Dense(16))
+    model.add(Activation('relu'))
+    model.add(Dense(16))
+    model.add(Activation('relu'))
+    model.add(Dense(env.action_space.shape[0]))
+    model.add(Activation('linear'))
+    print(model.summary())
+    return model
+
+
+def mylogistic(x):
+    return 1 / (1 + K.exp(-0.1 * x))
+
+
+def my_actor(env):
+    actor = Sequential()
+    actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))
+    actor.add(Dense(16))
+    actor.add(Activation('relu'))
+    actor.add(Dense(16))
+    actor.add(Activation('relu'))
+    # actor.add(Dense(16))
+    # actor.add(Activation('relu'))
+    actor.add(Dense(env.action_space.shape[0]))
+
+    actor.add(Activation(mylogistic))
+    # actor.add(Activation('linear'))
+    print(actor.summary())
+    return actor
+
+
+def my_critic(env, action_input):
+    observation_input = Input(shape=(1,) + env.observation_space.shape, name='observation_input')
+    flattened_observation = Flatten()(observation_input)
+    x = Concatenate()([action_input, flattened_observation])
+    # x = Dense(32)(x)
+    # x = Activation('relu')(x)
+    x = Dense(32)(x)
+    x = Activation('relu')(x)
+    x = Dense(32)(x)
+    x = Activation('relu')(x)
+    x = Dense(1)(x)
+    x = Activation('linear')(x)  # Since reward=1/distance, it's always going to be positive
+    critic = Model(inputs=[action_input, observation_input], outputs=x)
+    print(critic.summary())
+    return critic
 
 
 class MyDDPGAgent(DDPGAgent):
@@ -100,12 +161,13 @@ class ObservationSpace(Space):
 
 
 class PointModel2dEnv(Env):
-    def __init__(self, sock: socket, dof_action=16, dof_observation=6, success_thres=0.1,
+    def __init__(self, dof_action=16, dof_observation=6, success_thres=0.1,
                  verbose=2, log_to_file=True, log_file='log'):
-        self.sock = sock
+        self.sock = None
         self.verbose = verbose
         self.success_thres = success_thres
-        self.state = None
+        self.ref_pos = None
+        self.follower_pos = None
 
         self.action_space = ActionSpace(dof_action)
         self.observation_space = ObservationSpace(dof_observation)  # np.random.rand(dof_observation)
@@ -130,87 +192,116 @@ class PointModel2dEnv(Env):
         print(obj) if verbose <= self.verbose else lambda: None
 
     def send(self, obj=dict(), message_type=''):
-        obj.update({'type': message_type})
         try:
+            obj.update({'type': message_type})
             json_obj = json.dumps(eval(str(obj)), ensure_ascii=False).encode('utf-8')
-        except NameError as err:
-            self.log('error in send: ' + str(err))
-
-        objlen = json_obj.__len__()
-        self.sock.send((objlen).to_bytes(4, byteorder='big'))
-        bytes_sent = self.sock.send(json_obj)
-        while bytes_sent < objlen:
-            print('Data not sent completely: ' + str(bytes_sent) + ' < ' +
-                  str(json_obj.__len__()))
+            objlen = json_obj.__len__()
+            self.sock.send(objlen.to_bytes(4, byteorder='big'))
             bytes_sent = self.sock.send(json_obj)
-        self.log('obj sent: ' + str(obj))
+            while bytes_sent < objlen:
+                print('Data not sent completely: ' + str(bytes_sent) + ' < ' +
+                      str(json_obj.__len__()))
+                bytes_sent = self.sock.send(json_obj)
+            self.log('obj sent: ' + str(obj))
+        except NameError as err:
+            self.log('error in send: ' + str(err), verbose=1)
 
-    def receive(self):
+    def receive(self, wait_time=0):
         import struct
-        rec_int_bytes = self.sock.recv(4) #.decode("utf-8")
+        try:
+            self.sock.settimeout(wait_time)
+            rec_int_bytes = self.sock.recv(4) #.decode("utf-8")
+            rec_int = struct.unpack("!i", rec_int_bytes)[0]
+            rec = self.sock.recv(rec_int).decode("utf-8")
+        except TimeoutException:
+            self.log("Error: Socket timeout in receive", verbose=1)
+            return None
+        finally:
+            self.sock.settimeout(0)
         # rec_int = int(rec_int_bytes)  #int.from_bytes(rec_int_bytes, byteorder='big')
-        rec_int = struct.unpack("!i", rec_int_bytes)[0]
-        rec = self.sock.recv(rec_int).decode("utf-8")
         self.log('obj rec: ' + str(rec))
         try:
             data_dict_result = json.loads(rec)
             return data_dict_result
         except json.decoder.JSONDecodeError as e:
-            self.log('error in receive: ' + str(e))
+            self.log('error in receive: ' + str(e), verbose=1)
             return None
 
     @staticmethod
     def augment_action(action):
-        return dict(zip(muscle_labels, action))
+        return dict(zip(muscle_labels, np.nan_to_num(action)))
 
     def step(self, action):
         # todo: assuming that action is always a numpy array of excitations.
         action = PointModel2dEnv.augment_action(action)
+        time.sleep(0.2)
         self.send(action, 'excitations')
         state = self.get_state()
         if state is not None:
-            self.set_state(state)
-            ref_pos = state[0:3]
-            follower_pos = state[3:6]
-            distance = self.calculate_distance(ref_pos, follower_pos)
-            reward = self.calculate_reward(distance)
+            new_ref_pos = state[0:3]
+            new_follower_pos = state[3:6]
+            distance = self.calculate_distance(new_ref_pos, new_follower_pos)
+            # reward = self.calculate_reward(distance)
+            if self.follower_pos is not None:
+                reward = PointModel2dEnv.calcualte_reward(new_ref_pos, self.follower_pos, new_follower_pos)
+            else:
+                reward = 0
+            self.set_state(new_ref_pos, new_follower_pos)
             self.log('Reward: ' + str(reward))
             done = True if distance < self.success_thres else False
             if done:
-                self.log('Achieved done state')
+                self.log('Achieved done state', verbose=1)
             return state, reward, done, dict()
+
+    def connect(self):
+        self.log('Connecting...', verbose=1)
+        port_number = 6611
+        server_address = ('localhost', port_number)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setblocking(1)
+        self.sock.connect(server_address)
+        self.log('Conneted to server at: {}'.format(server_address), verbose=1)
 
     def get_state(self):
         self.send(message_type='getState')
-        rec_dict = self.receive()
+        rec_dict = self.receive(2)
+        fail_count = 0
         while True:
             try:
                 if rec_dict['type'] == 'state':
                     break
                 else:
-                    rec_dict = self.receive()
+                    raise Exception
             except:
-                rec_dict = self.receive()
-
-        # if rec_dict['type'] == 'state':
+                self.log('Error in get_state receive data. Reconnecting...', verbose=1)
+                self.connect()
+                self.send(message_type='getState')
+                rec_dict = self.receive(2)
         try:
-            state = PointModel2dEnv.parse_state(rec_dict)
+            state = PointModel2dEnv.state_json_to_array(rec_dict)
             return state
         except:
-            self.log('Error in parsing get_state')
+            self.log('Error in parsing get_state', verbose=1)
         return None
 
     def set_state(self, state):
-        self.state = state
+        self.set_state(state[:3], state[4:])
+
+    def set_state(self, ref_pos, follower_pos):
+        self.ref_pos = ref_pos
+        self.follower_pos = follower_pos
 
     @staticmethod
-    def parse_state(state_dict: dict):
+    def state_json_to_array(state_dict: dict):
         ref_pos = np.array([float(s) for s in state_dict['ref_pos'].split(" ")])
         follower_pos = np.array([float(s) for s in state_dict['follow_pos'].split(" ")])
         return np.concatenate((ref_pos, follower_pos))
 
     def reset(self):
         self.send(message_type='reset')
+        self.ref_pos = None
+        self.follower_pos = None
+        self.log('Reset', verbose=1)
         return self.get_state()
 
     def render(self, mode='human', close=False):
@@ -237,20 +328,19 @@ class PointModel2dEnv(Env):
     @staticmethod
     def calculate_reward(ref_pos, follow_pos, exp=True):
         if exp:
-            return np.exp(-PointModel2dEnv.calculate_distance(ref_pos, follow_pos))
+            return 1000 * np.exp(-PointModel2dEnv.calculate_distance(ref_pos, follow_pos)) - 50
         else:
             return 1/(PointModel2dEnv.calculate_distance(ref_pos, follow_pos) + EPSILON)
 
     @staticmethod
-    def calculate_reward(distance, exp=True):
-        if exp:
-            return np.exp(-distance)
-        else:
-            return 1/(distance + EPSILON)
-
-    @staticmethod
     def calculate_distance(a, b):
         return np.sqrt(np.sum((b - a) ** 2))
+
+    @staticmethod
+    def calcualte_reward(ref_pos, prev_follow_pos, new_follow_pos):
+        prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
+        new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
+        return prev_dist - new_dist
 
 
 

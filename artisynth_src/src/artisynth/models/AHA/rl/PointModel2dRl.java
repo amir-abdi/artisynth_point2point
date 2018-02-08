@@ -44,7 +44,7 @@ import maspack.spatialmotion.SpatialInertia;
 public class PointModel2dRl extends RootModel
 {
 	//   NumericInputProbe inputProbe; don't need a probe. just set the target position
-	static double MUSCLE_SPREAD_RADIUS = 4.11; // ultimate position with current settings of max muscle excitations
+	static double MUSCLE_SPREAD_RADIUS = 4.11 / 1.42; // ultimate position with current settings of max muscle excitations
 	public static final Vector3d zero = new Vector3d();
 	Vector3d disturbance = new Vector3d();
 
@@ -210,7 +210,7 @@ public class PointModel2dRl extends RootModel
 	}
 
 	public Point3d getRandomTarget(Point3d center, double radius)
-	{
+	{		
 		Random rand = new Random ();      
 		Vector3d targetVec = new Vector3d(rand.nextDouble ()-0.5, 
 				rand.nextDouble ()-0.5, 
@@ -234,7 +234,11 @@ public class PointModel2dRl extends RootModel
 				switch (jo_receive.getString("type")) 
 				{
 				case "reset":
-					resetRefPosition();
+					//artisynth.core.driver.Main.getMain().waitForStop();
+//					artisynth.core.driver.Main.getMain().pause();
+//					artisynth.core.driver.Main.getMain().reset();
+//					artisynth.core.driver.Main.getMain().play();
+					resetRefPosition();					
 					break;
 				case "excitations":
 					setExcitations(jo_receive);
@@ -256,11 +260,11 @@ public class PointModel2dRl extends RootModel
 
 	private void sendState()
 	{
-		try {
-		Thread.sleep(200);
-		} catch (InterruptedException e) {
-			Log.log("Error in sleep sendState: " + e.getMessage());
-		}
+//		try {
+//		Thread.sleep(200);
+//		} catch (InterruptedException e) {
+//			Log.log("Error in sleep sendState: " + e.getMessage());
+//		}
 		JSONObject jo_send_state = new JSONObject ();
 		RigidBody body_ref = mech.rigidBodies ().get ("body_ref");
 		RigidBody body_follower = mech.rigidBodies ().get ("body_follower");

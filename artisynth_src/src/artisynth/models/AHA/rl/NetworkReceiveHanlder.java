@@ -32,7 +32,10 @@ public class NetworkReceiveHanlder extends Thread
 				if (jo != null)
 				{
 					Log.log("Obj received: " + jo.toString());
-					try {	
+					if (lock.isLocked())
+						return;
+					try {							
+						Log.log("Locking lock in run");
 						lock.lock();
 						jsonObjects.add(jo);
 						Log.log("Queue size after add: " + jsonObjects.size());	
@@ -42,7 +45,8 @@ public class NetworkReceiveHanlder extends Thread
 						Log.log("Error in NetowkrReceive run: " + e.getMessage());
 					} finally {
 						//lock.notify();
-						lock.unlock();					
+						lock.unlock();				
+						Log.log("Unlocked lock in run");
 					}
 				}
 
@@ -69,8 +73,11 @@ public class NetworkReceiveHanlder extends Thread
 
 		if (jsonObjects.size() > 0)
 		{
+			if (lock.isLocked())
+				return null;
 			try
-			{
+			{								
+				Log.log("Locking lock in getMessage");
 				lock.lock();
 				jo = jsonObjects.remove();
 				Log.log("Removed from Queue: " + jo.getString("type"));
@@ -80,6 +87,7 @@ public class NetworkReceiveHanlder extends Thread
 			} finally {
 				//lock.notify();
 				lock.unlock();			
+				Log.log("Unlocked lock in getMessage");
 			}
 		}
 		return jo;		
@@ -87,13 +95,15 @@ public class NetworkReceiveHanlder extends Thread
 
 
 	byte[] b = new byte[1024];
-	byte[] int_bytes = new byte[4];
+	
 	private JSONObject receiveJsonObject() throws JSONException, IOException, SocketException
 	{		
 		if (in == null)		
 			throw new SocketException("Socket is closed");
-		
-		int bBytesToRead = in.read(int_bytes, 0, 4);		
+		byte[] int_bytes = new byte[4];
+		int bBytesToRead = in.read(int_bytes, 0, 4);
+		if (bBytesToRead <= 0)
+			return null;
 		assert(bBytesToRead == 4);
 		ByteBuffer wrapped = ByteBuffer.wrap(int_bytes);
 		
