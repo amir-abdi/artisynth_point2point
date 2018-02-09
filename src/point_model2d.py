@@ -61,15 +61,15 @@ def mylogistic(x):
 def my_actor(env):
     actor = Sequential()
     actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))
-    actor.add(Dense(16))
-    actor.add(Activation('relu'))
-    actor.add(Dense(16))
-    actor.add(Activation('relu'))
+    actor.add(Dense(128))
+    actor.add(Activation('tanh'))
+    actor.add(Dense(128))
+    actor.add(Activation('tanh'))
     # actor.add(Dense(16))
     # actor.add(Activation('relu'))
     actor.add(Dense(env.action_space.shape[0]))
 
-    actor.add(Activation(mylogistic))
+    actor.add(Activation('sigmoid'))
     # actor.add(Activation('linear'))
     print(actor.summary())
     return actor
@@ -81,10 +81,10 @@ def my_critic(env, action_input):
     x = Concatenate()([action_input, flattened_observation])
     # x = Dense(32)(x)
     # x = Activation('relu')(x)
-    x = Dense(32)(x)
-    x = Activation('relu')(x)
-    x = Dense(32)(x)
-    x = Activation('relu')(x)
+    x = Dense(64)(x)
+    x = Activation('tanh')(x)
+    x = Dense(64)(x)
+    x = Activation('tanh')(x)
     x = Dense(1)(x)
     x = Activation('linear')(x)  # Since reward=1/distance, it's always going to be positive
     critic = Model(inputs=[action_input, observation_input], outputs=x)
@@ -234,8 +234,8 @@ class PointModel2dEnv(Env):
     def step(self, action):
         # todo: assuming that action is always a numpy array of excitations.
         action = PointModel2dEnv.augment_action(action)
-        time.sleep(0.2)
         self.send(action, 'excitations')
+        time.sleep(0.2)
         state = self.get_state()
         if state is not None:
             new_ref_pos = state[0:3]
@@ -247,10 +247,10 @@ class PointModel2dEnv(Env):
             else:
                 reward = 0
             self.set_state(new_ref_pos, new_follower_pos)
-            self.log('Reward: ' + str(reward))
+            self.log('Reward: ' + str(reward), verbose=1)
             done = True if distance < self.success_thres else False
             if done:
-                self.log('Achieved done state', verbose=1)
+                self.log('Achieved done state', verbose=0)
             return state, reward, done, dict()
 
     def connect(self):
@@ -264,8 +264,7 @@ class PointModel2dEnv(Env):
 
     def get_state(self):
         self.send(message_type='getState')
-        rec_dict = self.receive(2)
-        fail_count = 0
+        rec_dict = self.receive(0.5)
         while True:
             try:
                 if rec_dict['type'] == 'state':
@@ -301,7 +300,7 @@ class PointModel2dEnv(Env):
         self.send(message_type='reset')
         self.ref_pos = None
         self.follower_pos = None
-        self.log('Reset', verbose=1)
+        self.log('Reset', verbose=0)
         return self.get_state()
 
     def render(self, mode='human', close=False):
@@ -340,7 +339,10 @@ class PointModel2dEnv(Env):
     def calcualte_reward(ref_pos, prev_follow_pos, new_follow_pos):
         prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
         new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
-        return prev_dist - new_dist
+        if prev_dist - new_dist > 0:
+            return prev_dist - new_dist
+        else:
+            return (prev_dist - new_dist) * 3
 
 
 

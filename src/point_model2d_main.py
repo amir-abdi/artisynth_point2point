@@ -28,7 +28,7 @@ def main():
 
     while True:
         try:
-            env = PointModel2dEnv(verbose=1, success_thres=0.5)
+            env = PointModel2dEnv(verbose=0, success_thres=0.5)
             env.connect()
             # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # server_address = ('localhost', 6611)
@@ -44,7 +44,7 @@ def main():
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
 
-        model_name = 'PointModel2D_middleSizeNet_myLogistic_moveReward'
+        model_name = 'PointModel2D_middleSizeNet_myLogistic_moveReward_tanh'
         weight_filename = str(Path.cwd() / trained_directory_path / 'AC_{}_weights.h5f'.format(model_name))
 
         # DQNAgent
@@ -63,7 +63,7 @@ def main():
                           )
 
         # dqn.processor = PointModel2dProcessor()
-        agent.compile(Adam(lr=1e+0), metrics=['mse'])
+        agent.compile(Adam(lr=1e-2), metrics=['mse'])
         load_weights(agent, weight_filename)
 
         agent.fit(env, nb_steps=500000, visualize=False, verbose=2, nb_max_episode_steps=2000)
