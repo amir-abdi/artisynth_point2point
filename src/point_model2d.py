@@ -251,6 +251,7 @@ class PointModel2dEnv(Env):
             done = True if distance < self.success_thres else False
             if done:
                 self.log('Achieved done state', verbose=0)
+                reward = 10
             return state, reward, done, dict()
 
     def connect(self):
