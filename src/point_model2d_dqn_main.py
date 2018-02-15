@@ -1,39 +1,34 @@
-from fileinput import filename
-from pathlib import Path
-import socket
-import sys
-from src.config import keras_rl_path
-from src.config import trained_directory_path
-sys.path.append(keras_rl_path)
-import numpy as np
-from src.point_model2d import *
-from rl.agents.dqn import DQNAgent
-from rl.agents.dqn import NAFAgent
-from rl.agents.ddpg import DDPGAgent
-from rl.random import OrnsteinUhlenbeckProcess
-from keras.utils.generic_utils import get_custom_objects
-from pathlib import Path
+from src.import_file import *
+
+def my_model(env):
+    # Next, we build a very simple model.
+    model = Sequential()
+    model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
+    model.add(Dense(16))
+    model.add(Activation('relu'))
+    model.add(Dense(16))
+    model.add(Activation('relu'))
+    model.add(Dense(16))
+    model.add(Activation('relu'))
+    model.add(Dense(env.action_space.shape[0]))
+    model.add(Activation('linear'))
+    print(model.summary())
+    return model
 
 
-def load_weights(agent, weight_filename):
-    import os
-    filename_temp, extension = os.path.splitext(weight_filename)
-    if Path.exists(Path(filename_temp + '_actor.h5f')):
-        agent.load_weights(str(weight_filename))
-        print('weights loaded from ', str(weight_filename ))
+class MyBoltzmannQPolicy(BoltzmannQPolicy):
+    def select_action(self, q_values):
+        assert q_values.ndim == 1
+        q_values = q_values.astype('float64')
+        q_values = np.clip(q_values, 0, 1)
+        return dict(zip(muscle_labels, q_values))
 
 
 def main():
-    get_custom_objects().update({'mylogistic': Activation(mylogistic)})
-
     while True:
         try:
             env = PointModel2dEnv(verbose=0, success_thres=0.5)
             env.connect()
-            # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # server_address = ('localhost', 6611)
-            # sock.setblocking(1)
-            # sock.connect(server_address)
             break
         except ConnectionRefusedError as e:
             print("Server not started: ", e)
@@ -47,11 +42,11 @@ def main():
         model_name = 'PointModel2D_middleSizeNet_myLogistic_moveReward_tanh'
         weight_filename = str(Path.cwd() / trained_directory_path / 'AC_{}_weights.h5f'.format(model_name))
 
-        # DQNAgent
-        # model = my_model(env)
-        # policy = MyBoltzmannQPolicy()
-        # agent = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=10,
-        #                target_model_update=1e-2, policy=policy)
+        DQNAgent
+        model = my_model(env)
+        policy = MyBoltzmannQPolicy()
+        agent = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=10,
+                       target_model_update=1e-2, policy=policy)
 
         action_input = Input(shape=(env.action_space.shape[0],), name='action_input')
         actor = my_actor(env)

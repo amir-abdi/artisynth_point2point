@@ -38,86 +38,6 @@ muscle_labels = ["n", "nne", "ne", "ene",
                  "w", "wnw", "nw", "nnw"]
 
 
-def my_model(env):
-    # Next, we build a very simple model.
-    model = Sequential()
-    model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
-    model.add(Dense(16))
-    model.add(Activation('relu'))
-    model.add(Dense(16))
-    model.add(Activation('relu'))
-    model.add(Dense(16))
-    model.add(Activation('relu'))
-    model.add(Dense(env.action_space.shape[0]))
-    model.add(Activation('linear'))
-    print(model.summary())
-    return model
-
-
-def mylogistic(x):
-    return 1 / (1 + K.exp(-0.1 * x))
-
-
-def my_actor(env):
-    actor = Sequential()
-    actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))
-    actor.add(Dense(128))
-    actor.add(Activation('tanh'))
-    actor.add(Dense(128))
-    actor.add(Activation('tanh'))
-    # actor.add(Dense(16))
-    # actor.add(Activation('relu'))
-    actor.add(Dense(env.action_space.shape[0]))
-
-    actor.add(Activation('sigmoid'))
-    # actor.add(Activation('linear'))
-    print(actor.summary())
-    return actor
-
-
-def my_critic(env, action_input):
-    observation_input = Input(shape=(1,) + env.observation_space.shape, name='observation_input')
-    flattened_observation = Flatten()(observation_input)
-    x = Concatenate()([action_input, flattened_observation])
-    # x = Dense(32)(x)
-    # x = Activation('relu')(x)
-    x = Dense(64)(x)
-    x = Activation('tanh')(x)
-    x = Dense(64)(x)
-    x = Activation('tanh')(x)
-    x = Dense(1)(x)
-    x = Activation('linear')(x)  # Since reward=1/distance, it's always going to be positive
-    critic = Model(inputs=[action_input, observation_input], outputs=x)
-    print(critic.summary())
-    return critic
-
-
-class MyDDPGAgent(DDPGAgent):
-    def select_action(self, state):
-        batch = self.process_state_batch([state])
-        action = self.actor.predict_on_batch(batch).flatten()
-        assert action.shape == (self.nb_actions,)
-
-        # Apply noise, if a random process is set.
-        if self.training and self.random_process is not None:
-            noise = self.random_process.sample()
-            assert noise.shape == action.shape
-            action += noise
-            # the below is necessary even if using logistic or sigmoid activations (because of noise)
-            action = np.clip(action, 0, 1)  # to avoid using negative and above 1 values for excitations
-
-        return action
-
-
-
-class MyBoltzmannQPolicy(BoltzmannQPolicy):
-    def select_action(self, q_values):
-        assert q_values.ndim == 1
-        q_values = q_values.astype('float64')
-        q_values = np.clip(q_values, 0, 1)
-        return dict(zip(muscle_labels, q_values))
-
-
 class ActionSpace(Space):
     def __init__(self, dof_action=12):
         self.shape = (dof_action,)
@@ -185,11 +105,16 @@ class PointModel2dEnv(Env):
             path = Path.cwd() / '..' / 'logs' / (log_file + str(log_counter))
         return open(str(path), "w"), str(path)
 
-    def log(self, obj, verbose=2):
+    def log(self, obj, verbose=2, same_line=False):
         if self.log_to_file and not self.logfile.closed:
             self.logfile.writelines(str(obj))
             self.logfile.write("\n")
-        print(obj) if verbose <= self.verbose else lambda: None
+
+        if same_line:
+            print(obj, sep=' ', end='\r', flush=True) if verbose <= self.verbose else lambda: None
+            print(obj, sep=' ', end=' ', flush=True) if verbose <= self.verbose else lambda: None
+        else:
+            print(obj) if verbose <= self.verbose else lambda: None
 
     def send(self, obj=dict(), message_type=''):
         try:
@@ -243,15 +168,15 @@ class PointModel2dEnv(Env):
             distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             # reward = self.calculate_reward(distance)
             if self.follower_pos is not None:
-                reward = PointModel2dEnv.calcualte_reward(new_ref_pos, self.follower_pos, new_follower_pos)
+                reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
             else:
                 reward = 0
             self.set_state(new_ref_pos, new_follower_pos)
-            self.log('Reward: ' + str(reward), verbose=1)
             done = True if distance < self.success_thres else False
             if done:
                 self.log('Achieved done state', verbose=0)
                 reward = 10
+            self.log('Reward: ' + str(reward), verbose=1, same_line=True)
             return state, reward, done, dict()
 
     def connect(self):
@@ -326,24 +251,31 @@ class PointModel2dEnv(Env):
         return dict(zip(muscle_labels, values))
 
     @staticmethod
-    def calculate_reward(ref_pos, follow_pos, exp=True):
+    def calculate_reward_pos(ref_pos, follow_pos, exp=True, constant=1):
         if exp:
-            return 1000 * np.exp(-PointModel2dEnv.calculate_distance(ref_pos, follow_pos)) - 50
+            return constant * np.exp(-PointModel2dEnv.calculate_distance(ref_pos, follow_pos)) - 50
         else:
-            return 1/(PointModel2dEnv.calculate_distance(ref_pos, follow_pos) + EPSILON)
+            return constant/(PointModel2dEnv.calculate_distance(ref_pos, follow_pos) + EPSILON)
 
     @staticmethod
     def calculate_distance(a, b):
         return np.sqrt(np.sum((b - a) ** 2))
 
     @staticmethod
-    def calcualte_reward(ref_pos, prev_follow_pos, new_follow_pos):
+    def calcualte_reward_move(ref_pos, prev_follow_pos, new_follow_pos):
         prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
+
         new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
         if prev_dist - new_dist > 0:
-            return prev_dist - new_dist
+            return np.sign(prev_dist - new_dist) * PointModel2dEnv.calculate_reward_pos(ref_pos,
+                                                                                        new_follow_pos,
+                                                                                        False,
+                                                                                        10)
         else:
-            return (prev_dist - new_dist) * 3
+            return np.sign(prev_dist - new_dist) * PointModel2dEnv.calculate_reward_pos(ref_pos,
+                                                                                        new_follow_pos,
+                                                                                        False,
+                                                                                        10)
 
 
 
