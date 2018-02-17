@@ -233,7 +233,10 @@ class PointModel2dEnv(Env):
         self.ref_pos = None
         self.follower_pos = None
         self.log('Reset', verbose=0)
-        return self.get_state()
+        state = self.get_state()
+        if not self.include_follow:
+            state = state[:3]
+        return state
 
     def render(self, mode='human', close=False):
         # our environment does not need rendering
@@ -287,7 +290,7 @@ class PointModel2dEnv(Env):
         new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
         if new_dist < self.success_thres:
             # achieved done state
-            return 1, True
+            return 5/self.agent.episode_step, True
         else:
             if prev_dist - new_dist > 0:
                 return 1/self.agent.episode_step, False

@@ -84,7 +84,7 @@ def main(train_test='train'):
 
     while True:
         try:
-            env = PointModel2dEnv(verbose=0, success_thres=0.5, dof_action=16, dof_observation=2,
+            env = PointModel2dEnv(verbose=2, success_thres=0.5, dof_action=16, dof_observation=3,
                                   include_follow=False)
             env.connect()
             break
@@ -97,7 +97,7 @@ def main(train_test='train'):
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
 
-        model_name = 'PointModel2D_NAF_sigmoid_time_noJump10_noFollowS'
+        model_name = 'PointModel2D_NAF_sigmoid_time_done+5/time_noFollowS'
         weight_filename = str(c.trained_directory / 'AC_{}_weights.h5f'.format(model_name))
 
         mu_model = my_mu_model(env)
@@ -155,7 +155,7 @@ def main(train_test='train'):
 
 
 if __name__ == "__main__":
-    main('test')
+    main('train')
 
 
 
