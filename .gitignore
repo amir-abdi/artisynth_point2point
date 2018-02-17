@@ -33,3 +33,5 @@ venv*
 logs*
 tf-logs*
 tb_logs*
+.idea*
+src/__pycache__*
