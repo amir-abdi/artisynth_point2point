@@ -4,6 +4,10 @@ import src.config as c
 from rl.callbacks import RlTensorBoard
 
 
+def mylogistic(x):
+    return 1 / (1 + K.exp(-0.1 * x))
+
+
 get_custom_objects().update({'mylogistic': Activation(mylogistic)})
 
 
@@ -80,7 +84,7 @@ def main(train_test='train'):
 
     while True:
         try:
-            env = PointModel2dEnv(verbose=2, success_thres=0.5)
+            env = PointModel2dEnv(verbose=0, success_thres=0.5)
             env.connect()
             break
         except ConnectionRefusedError as e:
@@ -92,7 +96,7 @@ def main(train_test='train'):
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
 
-        model_name = 'PointModel2D_NAF_sigmoid_timeR'
+        model_name = 'PointModel2D_NAF_sigmoid_time_noJump10'
         weight_filename = str(c.trained_directory / 'AC_{}_weights.h5f'.format(model_name))
 
         mu_model = my_mu_model(env)
@@ -150,7 +154,7 @@ def main(train_test='train'):
 
 
 if __name__ == "__main__":
-    main('train')
+    main('test')
 
 
 

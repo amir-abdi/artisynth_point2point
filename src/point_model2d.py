@@ -98,9 +98,9 @@ class PointModel2dEnv(Env):
         log_counter = 0
         log_folder = c.env_log_directory
         path = log_folder / (log_file + begin_time)
-        while Path.exists(path):
-            log_counter += 1
-            path = Path.cwd() / '..' / 'logs' / (log_file + str(log_counter))
+        # while Path.exists(path):
+        #     log_counter += 1
+        #     path = Path.cwd() / '..' / 'logs' / (log_file + str(log_counter))
         return open(str(path), "w"), str(path)
 
     def log(self, obj, verbose=2, same_line=False):
@@ -163,18 +163,18 @@ class PointModel2dEnv(Env):
         if state is not None:
             new_ref_pos = state[0:3]
             new_follower_pos = state[3:6]
-            distance = self.calculate_distance(new_ref_pos, new_follower_pos)
+            # distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             # reward = self.calculate_reward(distance)
             if self.follower_pos is not None:
                 # reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
-                reward = self.calcualte_reward_time(new_ref_pos, self.follower_pos, new_follower_pos)
+                reward, done = self.calcualte_reward_time(new_ref_pos, self.follower_pos, new_follower_pos)
             else:
-                reward = 0
+                reward, done = (0, False)
             self.set_state(new_ref_pos, new_follower_pos)
-            done = True if distance < self.success_thres else False
+            # done = True if distance < self.success_thres else False
             if done:
                 self.log('Achieved done state', verbose=0)
-                reward = 10
+                # reward = 10
             self.log('Reward: ' + str(reward), verbose=1, same_line=True)
             return state, reward, done, dict()
 
@@ -241,52 +241,51 @@ class PointModel2dEnv(Env):
     def configure(self, *args, **kwargs):
         pass
 
-    def calculate_excitations(self, ref_pos, follow_pos):
-        # forward pass of NN with positions to get values
-        values = [0, 0, 0, 0,
-                  0, 1, 0, 0,
-                  0, 0, 0, 1,
-                  0, 0, 0, 0]
-        return dict(zip(muscle_labels, values))
-
-    @staticmethod
-    def calculate_reward_pos(ref_pos, follow_pos, exp=True, constant=1):
-        if exp:
-            return constant * np.exp(-PointModel2dEnv.calculate_distance(ref_pos, follow_pos)) - 50
+    def calculate_reward_pos(self, ref_pos, follow_pos, exp=True, constant=1):
+        distance = PointModel2dEnv.calculate_distance(ref_pos, follow_pos)
+        if distance < self.success_thres:
+            # achieved done state
+            return 1, True
         else:
-            return constant/(PointModel2dEnv.calculate_distance(ref_pos, follow_pos) + EPSILON)
+            if exp:
+                return constant * np.exp(-distance) - 50, False
+            else:
+                return constant/(distance + EPSILON), False
 
     @staticmethod
     def calculate_distance(a, b):
         return np.sqrt(np.sum((b - a) ** 2))
 
-    @staticmethod
-    def calcualte_reward_move(ref_pos, prev_follow_pos, new_follow_pos):
+    def calcualte_reward_move(self, ref_pos, prev_follow_pos, new_follow_pos):
         prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
 
         new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
-        if prev_dist - new_dist > 0:
-            return np.sign(prev_dist - new_dist) * PointModel2dEnv.calculate_reward_pos(ref_pos,
-                                                                                        new_follow_pos,
-                                                                                        False,
-                                                                                        10)
+        if new_dist < self.success_thres:
+            # achieved done state
+            return 1, True
         else:
-            return np.sign(prev_dist - new_dist) * PointModel2dEnv.calculate_reward_pos(ref_pos,
-                                                                                        new_follow_pos,
-                                                                                        False,
-                                                                                        10)
+            if prev_dist - new_dist > 0:
+                return np.sign(prev_dist - new_dist) * self.calculate_reward_pos(ref_pos,
+                                                                                 new_follow_pos,
+                                                                                 False,
+                                                                                 10), False
+            else:
+                return np.sign(prev_dist - new_dist) * self.calculate_reward_pos(ref_pos,
+                                                                                 new_follow_pos,
+                                                                                 False,
+                                                                                 10), False
 
     def calcualte_reward_time(self, ref_pos, prev_follow_pos, new_follow_pos):
         prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
         new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
-        if prev_dist - new_dist > 0:
-            return 1/self.agent.episode_step
+        if new_dist < self.success_thres:
+            # achieved done state
+            return 1, True
         else:
-            return -1
-
-
-
-
+            if prev_dist - new_dist > 0:
+                return 1/self.agent.episode_step, False
+            else:
+                return -1, False
 
 
 class PointModel2dProcessor(Processor):
