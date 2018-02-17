@@ -52,10 +52,13 @@ def my_critic(env, action_input):
     return critic
 
 
-def main():
+def main(train_test):
+    training = False
+    get_custom_objects().update({'mylogistic': Activation(mylogistic)})
+
     while True:
         try:
-            env = PointModel2dEnv(verbose=1, success_thres=0.5)
+            env = PointModel2dEnv(verbose=2, success_thres=0.5)
             env.connect()
             break
         except ConnectionRefusedError as e:
@@ -68,13 +71,7 @@ def main():
         memory = SequentialMemory(limit=50000, window_length=1)
 
         model_name = 'PointModel2D_middleSizeNet_myLogistic_moveReward_tanh'
-        weight_filename = str(Path.cwd() / trained_directory / 'AC_{}_weights.h5f'.format(model_name))
-
-        # DQNAgent
-        # model = my_model(env)
-        # policy = MyBoltzmannQPolicy()
-        # agent = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=10,
-        #                target_model_update=1e-2, policy=policy)
+        weight_filename = str(c.trained_directory / 'AC_{}_weights.h5f'.format(model_name))
 
         action_input = Input(shape=(env.action_space.shape[0],), name='action_input')
         actor = my_actor(env)
@@ -85,33 +82,34 @@ def main():
                           random_process=random_process, gamma=.99, target_model_update=1e-3,
                           )
 
-        # dqn.processor = PointModel2dProcessor()
-        agent.compile(Adam(lr=1e-2), metrics=['mse'])
+        agent.compile(Adam(lr=1e-3), metrics=['mae'])
+        env.agent = agent
+        # pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)
 
-        agent.fit(env, nb_steps=500000, visualize=False, verbose=2, nb_max_episode_steps=2000,
-                  nb_max_start_steps=0)
-        print('Training complete')
-
-        agent.save_weights(weight_filename, overwrite=True)
-        print('results saved to ', weight_filename)
-
-        # test code
-        # env.log_to_file = False
-
-        # agent.load_weights(str(Path.cwd() / filename))
-        # agent.test(env, nb_episodes=5, visualize=True, nb_max_start_steps=0)
+        if train_test == 'train':
+            # train code
+            training = True
+            agent.fit(env, nb_steps=500000, visualize=False, verbose=2, nb_max_episode_steps=2000,
+                      nb_max_start_steps=0)
+            print('Training complete')
+            save_weights(agent, weight_filename)
+        elif train_test == 'test':
+            # test code
+            training = False
+            env.log_to_file = False
+            agent.test(env, nb_episodes=5, visualize=True, nb_max_start_steps=0)
 
     except Exception as e:
+        if training:
+            save_weights(agent, weight_filename)
         print("Error in main code:", str(e))
-        agent.save_weights(weight_filename, overwrite=True)
-        print('results saved to ', weight_filename)
         env.sock.close()
         raise e
 
 
 if __name__ == "__main__":
-    main()
+    main('train')
 
 
 

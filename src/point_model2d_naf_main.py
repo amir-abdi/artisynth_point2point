@@ -1,9 +1,7 @@
 from src.import_file import *
 from src.utilities import *
 import src.config as c
-
-def mylogistic(x):
-    return 1 / (1 + K.exp(-0.1 * x))
+from rl.callbacks import RlTensorBoard
 
 
 get_custom_objects().update({'mylogistic': Activation(mylogistic)})
@@ -94,7 +92,7 @@ def main(train_test='train'):
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
 
-        model_name = 'PointModel2D_NAF_sigmoid'
+        model_name = 'PointModel2D_NAF_sigmoid_timeR'
         weight_filename = str(c.trained_directory / 'AC_{}_weights.h5f'.format(model_name))
 
         mu_model = my_mu_model(env)
@@ -113,11 +111,11 @@ def main(train_test='train'):
                          target_episode_update=True)
 
         agent.compile(Adam(lr=1e-2), metrics=['mae'])
-        import pprint
+        env.agent = agent
         pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)
 
-        tensorboard = MyTensorBoard(
+        tensorboard = RlTensorBoard(
             log_dir=str(c.tensorboard_log_directory / begin_time),
             histogram_freq=1, batch_size=32, write_graph=True,
             write_grads=True, write_images=False, embeddings_freq=0,

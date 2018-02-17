@@ -78,7 +78,7 @@ class ObservationSpace(Space):
 
 class PointModel2dEnv(Env):
     def __init__(self, dof_action=16, dof_observation=6, success_thres=0.1,
-                 verbose=2, log_to_file=True, log_file='log'):
+                 verbose=2, log_to_file=True, log_file='log', agent=None):
         self.sock = None
         self.verbose = verbose
         self.success_thres = success_thres
@@ -91,6 +91,7 @@ class PointModel2dEnv(Env):
         if log_to_file:
             self.logfile, path = PointModel2dEnv.create_log_file(log_file)
             self.log('Logging into file: ' + path, verbose=1)
+        self.agent = agent
 
     @staticmethod
     def create_log_file(log_file):
@@ -165,7 +166,8 @@ class PointModel2dEnv(Env):
             distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             # reward = self.calculate_reward(distance)
             if self.follower_pos is not None:
-                reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
+                # reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
+                reward = self.calcualte_reward_time(new_ref_pos, self.follower_pos, new_follower_pos)
             else:
                 reward = 0
             self.set_state(new_ref_pos, new_follower_pos)
@@ -273,6 +275,16 @@ class PointModel2dEnv(Env):
                                                                                         new_follow_pos,
                                                                                         False,
                                                                                         10)
+
+    def calcualte_reward_time(self, ref_pos, prev_follow_pos, new_follow_pos):
+        prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
+        new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
+        if prev_dist - new_dist > 0:
+            return 1/self.agent.episode_step
+        else:
+            return -1
+
+
 
 
 

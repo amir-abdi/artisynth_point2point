@@ -35,7 +35,6 @@ from rl.core import Processor
 from keras.callbacks import TensorBoard
 from time import strftime
 import tensorflow as tf
-from src.my_tensorboard import MyTensorBoard
 from datetime import datetime
 from src.utilities import *
 
@@ -44,3 +43,4 @@ from gi.overrides import override
 from keras.layers import Dense, Activation, Flatten
 from keras.optimizers import Adam
 
+import pprint

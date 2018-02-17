@@ -22,5 +22,9 @@ def save_weights(agent, weight_filename):
         print('weights not saved')
 
 
+def mylogistic(x):
+    return 1 / (1 + K.exp(-0.1 * x))
+
+
 begin_time = str(datetime.now().strftime('%y-%m-%d_%H-%M'))
 
