@@ -78,7 +78,8 @@ class ObservationSpace(Space):
 
 class PointModel2dEnv(Env):
     def __init__(self, dof_action=16, dof_observation=6, success_thres=0.1,
-                 verbose=2, log_to_file=True, log_file='log', agent=None):
+                 verbose=2, log_to_file=True, log_file='log', agent=None,
+                 include_follow=True):
         self.sock = None
         self.verbose = verbose
         self.success_thres = success_thres
@@ -92,6 +93,7 @@ class PointModel2dEnv(Env):
             self.logfile, path = PointModel2dEnv.create_log_file(log_file)
             self.log('Logging into file: ' + path, verbose=1)
         self.agent = agent
+        self.include_follow = include_follow
 
     @staticmethod
     def create_log_file(log_file):
@@ -163,6 +165,7 @@ class PointModel2dEnv(Env):
         if state is not None:
             new_ref_pos = state[0:3]
             new_follower_pos = state[3:6]
+
             # distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             # reward = self.calculate_reward(distance)
             if self.follower_pos is not None:
@@ -176,6 +179,10 @@ class PointModel2dEnv(Env):
                 self.log('Achieved done state', verbose=0)
                 # reward = 10
             self.log('Reward: ' + str(reward), verbose=1, same_line=True)
+
+            if not self.include_follow:
+                state = state[:3]
+
             return state, reward, done, dict()
 
     def connect(self):

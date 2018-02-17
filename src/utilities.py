@@ -1,4 +1,6 @@
-
+from keras import backend as K
+import tensorflow as tf
+from keras.backend.tensorflow_backend import set_session
 from src.import_file import *
 from datetime import datetime
 
@@ -28,3 +30,7 @@ def mylogistic(x):
 
 begin_time = str(datetime.now().strftime('%y-%m-%d_%H-%M'))
 
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+config.gpu_options.visible_device_list = "0"
+set_session(tf.Session(config=config))
