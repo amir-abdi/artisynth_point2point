@@ -1,5 +1,6 @@
 from src.import_file import *
-
+from src.utilities import *
+import src.config as c
 
 def mylogistic(x):
     return 1 / (1 + K.exp(-0.1 * x))
@@ -94,7 +95,7 @@ def main(train_test='train'):
         memory = SequentialMemory(limit=50000, window_length=1)
 
         model_name = 'PointModel2D_NAF_sigmoid'
-        weight_filename = str(trained_directory / 'AC_{}_weights.h5f'.format(model_name))
+        weight_filename = str(c.trained_directory / 'AC_{}_weights.h5f'.format(model_name))
 
         mu_model = my_mu_model(env)
         V_model = my_V_model(env)
@@ -111,17 +112,19 @@ def main(train_test='train'):
                          processor=processor,
                          target_episode_update=True)
 
-        agent.compile(Adam(lr=1e-3), metrics=['mae'])
+        agent.compile(Adam(lr=1e-2), metrics=['mae'])
         import pprint
         pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)
 
         tensorboard = MyTensorBoard(
-            log_dir=str(tensorboard_log_directory / "{}".format(begin_time)),
+            log_dir=str(c.tensorboard_log_directory / begin_time),
             histogram_freq=1, batch_size=32, write_graph=True,
             write_grads=True, write_images=False, embeddings_freq=0,
             embeddings_layer_names=None, embeddings_metadata=None,
             agent=agent)
+        csv_logger = keras.callbacks.CSVLogger(str(c.agent_log_directory / begin_time),
+                                               append=False, separator=',')
 
         if train_test == 'train':
             # train code
@@ -131,7 +134,7 @@ def main(train_test='train'):
                       visualize=False,
                       verbose=2,
                       nb_max_episode_steps=200,
-                      callbacks=[tensorboard])
+                      callbacks=[tensorboard, csv_logger])
             print('Training complete')
             save_weights(agent, weight_filename)
         elif train_test == 'test':

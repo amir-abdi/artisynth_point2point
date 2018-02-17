@@ -25,6 +25,7 @@ from rl.core import Space
 from rl.core import Processor
 import numpy as np
 from src.utilities import begin_time
+import src.config as c
 
 
 muscle_labels = ["n", "nne", "ne", "ene",
@@ -94,9 +95,7 @@ class PointModel2dEnv(Env):
     @staticmethod
     def create_log_file(log_file):
         log_counter = 0
-        log_folder = Path.cwd() / '..' / 'logs'
-        if not log_folder.exists():
-            Path.mkdir(log_folder)
+        log_folder = c.env_log_directory
         path = log_folder / (log_file + begin_time)
         while Path.exists(path):
             log_counter += 1

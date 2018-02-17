@@ -1,9 +1,7 @@
 from fileinput import filename
 from pathlib import Path
 import socket
-import sys
-from src.config import *
-sys.path.append(keras_rl_path)
+
 import numpy as np
 from src.point_model2d import *
 from rl.agents.dqn import DQNAgent
@@ -16,9 +14,7 @@ from rl.agents.dqn import NAFAgent
 from fileinput import filename
 from pathlib import Path
 import socket
-import sys
-from src.config import keras_rl_path
-sys.path.append(keras_rl_path)
+
 import time
 import json
 from threading import Thread
