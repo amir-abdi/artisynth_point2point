@@ -2,8 +2,7 @@ from fileinput import filename
 from pathlib import Path
 import socket
 import sys
-from src.config import keras_rl_path
-from src.config import trained_directory_path
+from src.config import *
 sys.path.append(keras_rl_path)
 import numpy as np
 from src.point_model2d import *
@@ -38,19 +37,10 @@ from keras import backend as K
 from keras.utils.generic_utils import get_custom_objects
 from pathlib import Path
 from rl.core import Processor
-
-def mylogistic(x):
-    return 1 / (1 + K.exp(-0.1 * x))
-
-
-def load_weights(agent, weight_filename):
-    import os
-    filename_temp, extension = os.path.splitext(weight_filename)
-    if Path.exists(Path(filename_temp + '.h5f')) or \
-        Path.exists(Path(filename_temp + '_actor.h5f')):
-        agent.load_weights(str(weight_filename))
-        print('weights loaded from ', str(weight_filename))
-
-
-get_custom_objects().update({'mylogistic': Activation(mylogistic)})
+from keras.callbacks import TensorBoard
+from time import strftime
+import tensorflow as tf
+from src.my_tensorboard import MyTensorBoard
+from datetime import datetime
+from src.utilities import *
 

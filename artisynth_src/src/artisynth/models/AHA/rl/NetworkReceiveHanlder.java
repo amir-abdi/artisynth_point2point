@@ -53,9 +53,16 @@ public class NetworkReceiveHanlder extends Thread
 			}catch(SocketException e)
 			{
 				Log.log("SocketException in receiveJsonObject: " + e.getMessage());
-				in = null;
-				Log.log("Closing the receive thread");
-				break;
+				try {
+					in.close();
+					this.interrupt();
+					in = null;				
+					Log.log("Closing the receive thread");
+					break;				
+				} catch (IOException ioerr)
+				{
+					Log.log("Error in closing the receive thread");
+				}				
 			} catch(IOException e)
 			{
 				Log.log("IOException in receiveJsonObject: " + e.getMessage());

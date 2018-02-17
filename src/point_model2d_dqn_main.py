@@ -40,7 +40,7 @@ def main():
         memory = SequentialMemory(limit=50000, window_length=1)
 
         model_name = 'PointModel2D_middleSizeNet_myLogistic_moveReward_tanh'
-        weight_filename = str(Path.cwd() / trained_directory_path / 'AC_{}_weights.h5f'.format(model_name))
+        weight_filename = str(Path.cwd() / trained_directory / 'AC_{}_weights.h5f'.format(model_name))
 
         DQNAgent
         model = my_model(env)
