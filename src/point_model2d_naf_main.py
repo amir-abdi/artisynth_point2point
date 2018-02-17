@@ -1,30 +1,14 @@
 from src.import_file import *
 
 
-def write_summaries(self, model):
-    import keras.backend as tf
-    sess = tf.InteractiveSession()
-    train_writer = tf.summary.FileWriter(tensorboard_log_directory, sess.graph)
-
-
-def variable_summaries(var):
-    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
-    with tf.name_scope('summaries'):
-        mean = tf.reduce_mean(var)
-        tf.summary.scalar('mean', mean)
-        with tf.name_scope('stddev'):
-            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        tf.summary.scalar('stddev', stddev)
-        tf.summary.scalar('max', tf.reduce_max(var))
-        tf.summary.scalar('min', tf.reduce_min(var))
-        tf.summary.histogram('histogram', var)
+def mylogistic(x):
+    return 1 / (1 + K.exp(-0.1 * x))
 
 
 def my_V_model(env):
     # Next, we build a very simple model.
     V_model = Sequential()
     V_model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
-    # variable_summaries(V_model.layers[-1].get_weights())
     V_model.add(Dense(32))
     V_model.add(Activation('relu'))
 #    V_model.add(Dense(32))

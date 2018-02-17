@@ -1,10 +1,6 @@
 from src.import_file import *
 
 
-def mylogistic(x):
-    return 1 / (1 + K.exp(-0.1 * x))
-
-
 def load_weights(agent, weight_filename):
     import os
     filename_temp, extension = os.path.splitext(weight_filename)
@@ -15,6 +11,7 @@ def load_weights(agent, weight_filename):
 
 
 def save_weights(agent, weight_filename):
+    print('Save weights? (Y|N)')
     answer = input()
     if answer.lower() != 'n':
         agent.save_weights(weight_filename, overwrite=True)
