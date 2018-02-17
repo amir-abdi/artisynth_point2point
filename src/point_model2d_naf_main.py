@@ -5,6 +5,9 @@ def mylogistic(x):
     return 1 / (1 + K.exp(-0.1 * x))
 
 
+get_custom_objects().update({'mylogistic': Activation(mylogistic)})
+
+
 def my_V_model(env):
     # Next, we build a very simple model.
     V_model = Sequential()
@@ -105,7 +108,8 @@ def main(train_test='train'):
                          random_process=random_process,
                          gamma=.99,  # discount
                          target_model_update=200,  # 1e-2,
-                         processor=processor)
+                         processor=processor,
+                         target_episode_update=True)
 
         agent.compile(Adam(lr=1e-3), metrics=['mae'])
         import pprint
@@ -113,7 +117,7 @@ def main(train_test='train'):
         load_weights(agent, weight_filename)
 
         tensorboard = MyTensorBoard(
-            log_dir=str(tensorboard_log_directory / "{}".format(datetime.now().strftime('%d-%m-%y %H%M'))),
+            log_dir=str(tensorboard_log_directory / "{}".format(begin_time)),
             histogram_freq=1, batch_size=32, write_graph=True,
             write_grads=True, write_images=False, embeddings_freq=0,
             embeddings_layer_names=None, embeddings_metadata=None,

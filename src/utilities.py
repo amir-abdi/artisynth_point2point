@@ -1,4 +1,5 @@
 from src.import_file import *
+from datetime import datetime
 
 
 def load_weights(agent, weight_filename):
@@ -20,5 +21,5 @@ def save_weights(agent, weight_filename):
         print('weights not saved')
 
 
-get_custom_objects().update({'mylogistic': Activation(mylogistic)})
+begin_time = str(datetime.now().strftime('%y-%m-%d_%H-%M'))
 

@@ -28,7 +28,6 @@ from keras.optimizers import Adam
 from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
-import numpy as np
 from src.point_model2d import *
 #from rl.agents.dqn import DQNAgent
 #from rl.agents.ddpg import DDPGAgent
@@ -43,4 +42,9 @@ import tensorflow as tf
 from src.my_tensorboard import MyTensorBoard
 from datetime import datetime
 from src.utilities import *
+
+from gi.overrides import override
+# from keras.models import Sequential
+from keras.layers import Dense, Activation, Flatten
+from keras.optimizers import Adam
 

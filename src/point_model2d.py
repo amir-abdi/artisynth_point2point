@@ -1,17 +1,6 @@
-from gi.overrides import override
-# from keras.models import Sequential
-from keras.layers import Dense, Activation, Flatten
-from keras.optimizers import Adam
-
 import time
 from socket import timeout as TimeoutException
-from rl.policy import BoltzmannQPolicy
-from rl.memory import SequentialMemory
-from rl.core import Env
-from rl.core import Space
-from rl.core import Processor
 import json
-import numpy as np
 from src.consts import EPSILON
 import socket
 from typing import Union
@@ -19,7 +8,6 @@ from typing import Union
 from rl.agents import DDPGAgent
 from pathlib import Path
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
-import time
 import json
 from threading import Thread
 import keras
@@ -30,6 +18,13 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
 from keras import backend as K
+from rl.policy import BoltzmannQPolicy
+from rl.memory import SequentialMemory
+from rl.core import Env
+from rl.core import Space
+from rl.core import Processor
+import numpy as np
+from src.utilities import begin_time
 
 
 muscle_labels = ["n", "nne", "ne", "ene",
@@ -99,7 +94,10 @@ class PointModel2dEnv(Env):
     @staticmethod
     def create_log_file(log_file):
         log_counter = 0
-        path = Path.cwd() / '..' / 'logs' / (log_file + str(log_counter))
+        log_folder = Path.cwd() / '..' / 'logs'
+        if not log_folder.exists():
+            Path.mkdir(log_folder)
+        path = log_folder / (log_file + begin_time)
         while Path.exists(path):
             log_counter += 1
             path = Path.cwd() / '..' / 'logs' / (log_file + str(log_counter))
