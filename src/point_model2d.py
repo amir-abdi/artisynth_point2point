@@ -183,7 +183,14 @@ class PointModel2dEnv(Env):
             if not self.include_follow:
                 state = state[:3]
 
-            return state, reward, done, dict()
+        # if self.agent.step > 120000:
+        #     K.set_value(self.agent.combined_model.optimizer.lr, 1e-4)
+        #     self.success_thres = 0.05
+        # elif self.agent.step > 70000:
+        #     K.set_value(self.agent.combined_model.optimizer.lr, 1e-3)
+        #     self.success_thres = 0.25
+
+        return state, reward, done, dict()
 
     def connect(self):
         self.log('Connecting...', verbose=1)

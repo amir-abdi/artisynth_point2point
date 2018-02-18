@@ -35,3 +35,4 @@ tf-logs*
 tb_logs*
 .idea*
 src/__pycache__*
+trained*
