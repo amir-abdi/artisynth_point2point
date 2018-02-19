@@ -178,7 +178,7 @@ class PointModel2dEnv(Env):
             if done:
                 self.log('Achieved done state', verbose=0)
                 # reward = 10
-            self.log('Reward: ' + str(reward), verbose=1, same_line=True)
+            self.log('****Reward: ' + str(reward), verbose=1, same_line=True)
 
             if not self.include_follow:
                 state = state[:3]
