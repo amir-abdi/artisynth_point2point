@@ -105,26 +105,27 @@ public class JawRlDemo extends JawDemo
 	@Override
 	public void build (String[] args) throws IOException {
 		super.build (args);
-		addMidPoint();
-		addleftPoint();
-		addrightPoint();
-		addrefrightPoint();
-		addrefleftPoint();
-		addrefMidPoint();
+		addMarkers();
 		//sendState();
 		networkHandler = new NetworkHandler();
 		networkHandler.start ();
 	}
 
+	private void addMarkers() 
+	{
+		RigidBody ref_jaw = myJawModel.rigidBodies().get("ref_jaw");
+		RigidBody jaw = myJawModel.rigidBodies().get("jaw");
+		addPoint(new Point3d(0 ,-47.9584 ,41.7642), ref_jaw, "mid_ref");
+		addPoint(new Point3d(0 ,-47.9584 ,41.7642), jaw, "mid_follow");
+		addPoint(new Point3d(-24.8, -20.4, 47), ref_jaw, "left_ref");
+		addPoint(new Point3d(-24.8, -20.4, 47), jaw, "left_follow");
+		addPoint(new Point3d(24.8, -20.4, 47), ref_jaw, "right_ref");
+		addPoint(new Point3d(24.8, -20.4, 47), jaw, "right_follow");		
+		
+	}
+
 	void setRandomJawCentricRotation()
 	{
-		//		RigidBody jaw  = myJawModel.rigidBodies().get("jaw");
-		//		Vector3d p = new Vector3d(0, 0, 0);
-		//		AxisAngle axisAng = new AxisAngle(axis, rand.nextDouble());
-		//		RotationMatrix3d R = new RotationMatrix3d(axisAng);
-		//		
-		//		RigidTransform3d T = new RigidTransform3d(p, R);
-		//		jaw.transformPose(T);
 		((MyJawModel)myJawModel).setJawCentricRotation(rand.nextDouble()*MAX_ROTATION);
 	}
 
@@ -146,8 +147,7 @@ public class JawRlDemo extends JawDemo
 				"lMedWallAngle", "rMedWallAngle", 
 				"lPostWallAngle", "rPostWallAngle", 
 				"lBiteAngle", "rBiteAngle", 
-				"lBiteCant", "rBiteCant" };
-		
+				"lBiteCant", "rBiteCant" };		
 		
 		myJawModel.createAndAddBody("ref_jaw", "jaw_smooth.obj");
 		
@@ -216,182 +216,44 @@ public class JawRlDemo extends JawDemo
 		//addIncisorForce();
 		//createIncisorPointForce();
 	}	
+	
 
-	
-    public void addMidPoint()
-    {
-        //RigidBody lowerArm = model.rigidBodies().get("lower");
-        RigidBody jaw  = ((MyJawModel)myJawModel).rigidBodies().get("jaw");
-        System.out.println(jaw);
-        if (jaw==null)
-        {
-            return;
-        }
+    public void addPoint(Point3d point, RigidBody rb, String name)
+    {        
+        FrameMarker fm = new FrameMarker();
+        fm.setName(name);
+        fm.setFrame(rb);
+        fm.setLocation(point); 
+        myJawModel.addFrameMarker(fm);
         
-        FrameMarker midPoint = new FrameMarker();
-        midPoint.setName("MidPoint");
-        midPoint.setFrame(jaw);
-        midPoint.setLocation(new Point3d(0 ,-47.9584 ,41.7642)); // location of the frame marker 
-        ((MyJawModel)myJawModel).addFrameMarker(midPoint);
-        //lowerArm.addMarker(endPoint);
-        
-        RenderProps rp = new RenderProps(((MyJawModel)myJawModel).getRenderProps());
+        RenderProps rp = new RenderProps(myJawModel.getRenderProps());        
         rp.setShading(Renderer.Shading.SMOOTH);
         rp.setPointColor(Color.RED);
         rp.setPointRadius(2.0);   // radius of the frame marker
-        midPoint.setRenderProps(rp);
+        fm.setRenderProps(rp);
     }
 	
-    public void addrefMidPoint()
-    {
-        //RigidBody lowerArm = model.rigidBodies().get("lower");
-        RigidBody ref_jaw  = ((MyJawModel)myJawModel).rigidBodies().get("ref_jaw");
-        System.out.println(ref_jaw);
-        if (ref_jaw==null)
-        {
-            return;
-        }
-        
-        FrameMarker Refjaw_midPoint = new FrameMarker();
-        Refjaw_midPoint.setName("RefJawMidPoint");
-        Refjaw_midPoint.setFrame(ref_jaw);
-        Refjaw_midPoint.setLocation(new Point3d(0 ,-47.9584 ,41.7642)); // location of the frame marker 
-        ((MyJawModel)myJawModel).addFrameMarker(Refjaw_midPoint);
-        //lowerArm.addMarker(endPoint);
-        
-        RenderProps rp = new RenderProps(((MyJawModel)myJawModel).getRenderProps());
-        rp.setShading(Renderer.Shading.SMOOTH);
-        rp.setPointColor(Color.RED);
-        rp.setPointRadius(2.0);   // radius of the frame marker
-        Refjaw_midPoint.setRenderProps(rp);
-    }
-    
-    
-    public void addleftPoint()
-    {
-        //RigidBody lowerArm = model.rigidBodies().get("lower");
-        RigidBody jaw  = ((MyJawModel)myJawModel).rigidBodies().get("jaw");
-        System.out.println(jaw);
-        if (jaw==null)
-        {
-            return;
-        }
-        
-        FrameMarker lPoint = new FrameMarker();
-        lPoint.setName("LeftPoint");
-        lPoint.setFrame(jaw);
-        lPoint.setLocation(new Point3d(-20.9584 ,-47.9584 ,41.7642)); // location of the frame marker 
-        ((MyJawModel)myJawModel).addFrameMarker(lPoint);
-        //lowerArm.addMarker(endPoint);
-        
-        RenderProps rp = new RenderProps(myJawModel.getRenderProps());
-        rp.setShading(Renderer.Shading.SMOOTH);
-        rp.setPointColor(Color.RED);
-        rp.setPointRadius(2.0);   // radius of the frame marker
-        lPoint.setRenderProps(rp);
-    }
-	
-    public void addrefleftPoint()
-    {
-        //RigidBody lowerArm = model.rigidBodies().get("lower");
-        RigidBody ref_jaw  = ((MyJawModel)myJawModel).rigidBodies().get("ref_jaw");
-        System.out.println(ref_jaw);
-        if (ref_jaw==null)
-        {
-            return;
-        }
-        
-        FrameMarker Refjaw_lPoint = new FrameMarker();
-        Refjaw_lPoint.setName("RefJawLeftPoint");
-        Refjaw_lPoint.setFrame(ref_jaw);
-        Refjaw_lPoint.setLocation(new Point3d(-20.9584 ,-47.9584 ,41.7642)); // location of the frame marker 
-        ((MyJawModel)myJawModel).addFrameMarker(Refjaw_lPoint);
-        //lowerArm.addMarker(endPoint);
-        
-        RenderProps rp = new RenderProps(myJawModel.getRenderProps());
-        rp.setShading(Renderer.Shading.SMOOTH);
-        rp.setPointColor(Color.RED);
-        rp.setPointRadius(2.0);   // radius of the frame marker
-        Refjaw_lPoint.setRenderProps(rp);
-    }
-    
-    public void addrightPoint()
-    {
-        //RigidBody lowerArm = model.rigidBodies().get("lower");
-        RigidBody jaw  = ((MyJawModel)myJawModel).rigidBodies().get("jaw");
-        System.out.println(jaw);
-        if (jaw==null)
-        {
-            return;
-        }
-        
-        FrameMarker rPoint = new FrameMarker();
-        rPoint.setName("RightPoint");
-        rPoint.setFrame(jaw);
-        rPoint.setLocation(new Point3d(21.591799, -34.198157, 39.897917)); // location of the frame marker 
-        ((MyJawModel)myJawModel).addFrameMarker(rPoint);
-        //lowerArm.addMarker(endPoint);
-        
-        RenderProps rp = new RenderProps(((MyJawModel)myJawModel).getRenderProps());
-        rp.setShading(Renderer.Shading.SMOOTH);
-        rp.setPointColor(Color.RED);
-        rp.setPointRadius(2.0);   // radius of the frame marker
-        rPoint.setRenderProps(rp);
-    }
-    
-    public void addrefrightPoint()
-    {
-        //RigidBody lowerArm = model.rigidBodies().get("lower");
-        RigidBody ref_jaw  = ((MyJawModel)myJawModel).rigidBodies().get("ref_jaw");
-        System.out.println(ref_jaw);
-        if (ref_jaw==null)
-        {
-            return;
-        }
-        
-        FrameMarker Refjaw_rPoint = new FrameMarker();
-        Refjaw_rPoint.setName("RefJawRightPoint");
-        Refjaw_rPoint.setFrame(ref_jaw);
-        Refjaw_rPoint.setLocation(new Point3d(21.591799, -34.198157, 39.897917)); // location of the frame marker 
-        ((MyJawModel)myJawModel).addFrameMarker(Refjaw_rPoint);
-        //lowerArm.addMarker(endPoint);
-        
-        RenderProps rp = new RenderProps(((MyJawModel)myJawModel).getRenderProps());
-        rp.setShading(Renderer.Shading.SMOOTH);
-        rp.setPointColor(Color.RED);
-        rp.setPointRadius(2.0);   // radius of the frame marker
-        Refjaw_rPoint.setRenderProps(rp);
-    }
-    
-    
     private void sendState()
 	{
-//		try {
-//		Thread.sleep(200);
-//		} catch (InterruptedException e) {
-//			Log.log("Error in sleep sendState: " + e.getMessage());
-//		}
 		JSONObject jo_send_state = new JSONObject ();
 		//RigidBody midPoint = ((MyJawModel)myJawModel).rigidBodies ().get ("MidPoint");
 		//RigidBody Refjaw_midPoint = ((MyJawModel)myJawModel).rigidBodies ().get ("RefJawMidPoint");
-		FrameMarker midPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("MidPoint");
-		FrameMarker Refjaw_midPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("RefJawMidPoint");
-		FrameMarker lPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("LeftPoint");
-		FrameMarker Refjaw_lPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("RefJawLeftPoint");
-		FrameMarker rPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("RightPoint");
-		FrameMarker Refjaw_rPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("RefJawRightPoint");
+		FrameMarker midPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("mid_follow");
+		FrameMarker Refjaw_midPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("mid_ref");
+		FrameMarker lPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("left_follow");
+		FrameMarker Refjaw_lPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("left_ref");
+		FrameMarker rPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("right_follow");
+		FrameMarker Refjaw_rPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("right_ref");
 		
 		try {
-			//System.out.println(midPoint.getPosition ());
 			jo_send_state.put ("type", "state");
-			jo_send_state.put ("MidPoint", midPoint.getPosition ());
-			jo_send_state.put ("RefJawMidPoint", Refjaw_midPoint.getPosition ());
-			jo_send_state.put ("LeftPoint", lPoint.getPosition ());
-			jo_send_state.put ("RefJawLeftPoint", Refjaw_lPoint.getPosition ());
-			jo_send_state.put ("RightPoint", rPoint.getPosition ());
-			jo_send_state.put ("RefJawRightPoint", Refjaw_rPoint.getPosition ());
-			//jo_send_state.put ("RefJawMidPoint", body_follower.getPosition ());
-			//          print(jo.toString ());
+			jo_send_state.put ("mid_follow", midPoint.getPosition ());
+			jo_send_state.put ("mid_ref", Refjaw_midPoint.getPosition ());
+			jo_send_state.put ("left_follow", lPoint.getPosition ());
+			jo_send_state.put ("left_ref", Refjaw_lPoint.getPosition ());
+			jo_send_state.put ("right_follow", rPoint.getPosition ());
+			jo_send_state.put ("right_ref", Refjaw_rPoint.getPosition ());
+
 			networkHandler.send (jo_send_state);			
 		}
 		catch (JSONException e)
