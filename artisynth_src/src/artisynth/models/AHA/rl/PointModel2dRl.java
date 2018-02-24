@@ -93,10 +93,10 @@ public class PointModel2dRl extends RootModel
 
 	public void build (String[] args) throws IOException
 	{
-		build (defaultDemoType);      
+		build (defaultDemoType, args);      
 	}
 
-	public void build (DemoType demoType) 
+	public void build (DemoType demoType, String[] args) 
 	{
 		myDemoType = demoType;
 
@@ -109,7 +109,8 @@ public class PointModel2dRl extends RootModel
 
 		setupRenderProps();
 
-		networkHandler = new NetworkHandler();
+		int port = Integer.parseInt(args[0]);
+		networkHandler = new NetworkHandler(port);
 		networkHandler.start ();
 	}
 

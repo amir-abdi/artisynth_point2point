@@ -62,9 +62,50 @@ public class JawRlDemo extends JawDemo
 	protected MechModel model;
 	NetworkHandler networkHandler;
 	static float MAX_ROTATION = 20;
+	String[] muscleLabels = new String[]{
+			"n","nne", "ne", "ene",
+			"e", "ese", "se", "sse",
+			"s", "ssw", "sw", "wsw",
+			"w", "wnw", "nw", "nnw"
+	};
+	String[] pointLabels = new String[]{
+			"mr","lr", "rr",
+			"mf","lf", "rf",
+	};
+
 
 	Random rand = new Random();	
 
+	@Override
+	public void build (String[] args) throws IOException {
+		super.build (args);
+		addMarkers();
+		//sendState();
+		
+		if (args[0].compareTo("port") == 0)
+		{
+			int port = Integer.parseInt(args[1]);			
+			networkHandler = new NetworkHandler(port);
+		}
+		else
+			networkHandler = new NetworkHandler();
+		networkHandler.start ();		
+	}
+	
+	private void setExcitations (JSONObject jo_rec) throws JSONException
+	{
+		for (String label : muscleLabels) 
+		{       
+			AxialSpring m = myJawModel.axialSprings().get (label);
+			{
+				if (m instanceof Muscle)               
+					((Muscle)m).setExcitation (jo_rec.getDouble (label));            
+			}
+		}
+		log("Exications filled");
+
+	}
+	
 	@Override
 	public StepAdjustment advance(double t0, double t1, int flags)
 	{	   	        
@@ -75,10 +116,10 @@ public class JawRlDemo extends JawDemo
 				switch (jo_receive.getString("type")) 
 				{
 				case "reset":
-					//resetRefPosition();					
+					setRandomJawCentricRotation();					
 					break;
 				case "excitations":
-					//setExcitations(jo_receive);
+					setExcitations(jo_receive);
 					break;
 				case "getState":
 					sendState();
@@ -95,38 +136,29 @@ public class JawRlDemo extends JawDemo
 			setRandomJawCentricRotation();
 		return super.advance (t0, t1, flags);
 	}
-	
+
 	public void log(Object obj)
 	{
 		System.out.println (obj);
-	}
-
-
-	@Override
-	public void build (String[] args) throws IOException {
-		super.build (args);
-		addMarkers();
-		//sendState();
-		networkHandler = new NetworkHandler();
-		networkHandler.start ();
 	}
 
 	private void addMarkers() 
 	{
 		RigidBody ref_jaw = myJawModel.rigidBodies().get("ref_jaw");
 		RigidBody jaw = myJawModel.rigidBodies().get("jaw");
-		addPoint(new Point3d(0 ,-47.9584 ,41.7642), ref_jaw, "mid_ref");
-		addPoint(new Point3d(0 ,-47.9584 ,41.7642), jaw, "mid_follow");
-		addPoint(new Point3d(-24.8, -20.4, 47), ref_jaw, "left_ref");
-		addPoint(new Point3d(-24.8, -20.4, 47), jaw, "left_follow");
-		addPoint(new Point3d(24.8, -20.4, 47), ref_jaw, "right_ref");
-		addPoint(new Point3d(24.8, -20.4, 47), jaw, "right_follow");		
-		
+		addPoint(new Point3d(0 ,-47.9584 ,41.7642), ref_jaw, "mr");
+		addPoint(new Point3d(0 ,-47.9584 ,41.7642), jaw, "mf");
+		addPoint(new Point3d(-24.8, -20.4, 47), ref_jaw, "lr");
+		addPoint(new Point3d(-24.8, -20.4, 47), jaw, "lf");
+		addPoint(new Point3d(24.8, -20.4, 47), ref_jaw, "rr");
+		addPoint(new Point3d(24.8, -20.4, 47), jaw, "rf");		
+
 	}
 
 	void setRandomJawCentricRotation()
 	{
-		((MyJawModel)myJawModel).setJawCentricRotation(rand.nextDouble()*MAX_ROTATION);
+		((MyJawModel)myJawModel).setJawCentricRotation(
+				rand.nextDouble()*MAX_ROTATION);
 	}
 
 	@Override
@@ -148,11 +180,11 @@ public class JawRlDemo extends JawDemo
 				"lPostWallAngle", "rPostWallAngle", 
 				"lBiteAngle", "rBiteAngle", 
 				"lBiteCant", "rBiteCant" };		
-		
+
 		myJawModel.createAndAddBody("ref_jaw", "jaw_smooth.obj");
-		
-				RigidBody refJaw = new RigidBody("ref_jaw");
-		
+
+		RigidBody refJaw = new RigidBody("ref_jaw");
+
 	}
 
 	void addMuscleControlPanel()
@@ -196,7 +228,7 @@ public class JawRlDemo extends JawDemo
 		RenderProps.setVisible(myJawModel.rigidBodies().get("maxilla"), true);
 		RenderProps.setVisible(myJawModel.rigidBodies().get("hyoid"), true);
 		RenderProps.setVisible(myJawModel.rigidBodies().get("ref_jaw"), true);
-		
+
 		RenderProps.setFaceColor(myJawModel.rigidBodies().get("ref_jaw"), 
 				Color.GREEN);
 
@@ -216,44 +248,34 @@ public class JawRlDemo extends JawDemo
 		//addIncisorForce();
 		//createIncisorPointForce();
 	}	
-	
 
-    public void addPoint(Point3d point, RigidBody rb, String name)
-    {        
-        FrameMarker fm = new FrameMarker();
-        fm.setName(name);
-        fm.setFrame(rb);
-        fm.setLocation(point); 
-        myJawModel.addFrameMarker(fm);
-        
-        RenderProps rp = new RenderProps(myJawModel.getRenderProps());        
-        rp.setShading(Renderer.Shading.SMOOTH);
-        rp.setPointColor(Color.RED);
-        rp.setPointRadius(2.0);   // radius of the frame marker
-        fm.setRenderProps(rp);
-    }
-	
-    private void sendState()
+
+	public void addPoint(Point3d point, RigidBody rb, String name)
+	{        
+		FrameMarker fm = new FrameMarker();
+		fm.setName(name);
+		fm.setFrame(rb);
+		fm.setLocation(point); 
+		myJawModel.addFrameMarker(fm);
+
+		RenderProps rp = new RenderProps(myJawModel.getRenderProps());        
+		rp.setShading(Renderer.Shading.SMOOTH);
+		rp.setPointColor(Color.RED);
+		rp.setPointRadius(2.0);   // radius of the frame marker
+		fm.setRenderProps(rp);
+	}
+
+	private void sendState()
 	{
 		JSONObject jo_send_state = new JSONObject ();
-		//RigidBody midPoint = ((MyJawModel)myJawModel).rigidBodies ().get ("MidPoint");
-		//RigidBody Refjaw_midPoint = ((MyJawModel)myJawModel).rigidBodies ().get ("RefJawMidPoint");
-		FrameMarker midPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("mid_follow");
-		FrameMarker Refjaw_midPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("mid_ref");
-		FrameMarker lPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("left_follow");
-		FrameMarker Refjaw_lPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("left_ref");
-		FrameMarker rPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("right_follow");
-		FrameMarker Refjaw_rPoint = ((MyJawModel)myJawModel).frameMarkers ().get ("right_ref");
-		
 		try {
-			jo_send_state.put ("type", "state");
-			jo_send_state.put ("mid_follow", midPoint.getPosition ());
-			jo_send_state.put ("mid_ref", Refjaw_midPoint.getPosition ());
-			jo_send_state.put ("left_follow", lPoint.getPosition ());
-			jo_send_state.put ("left_ref", Refjaw_lPoint.getPosition ());
-			jo_send_state.put ("right_follow", rPoint.getPosition ());
-			jo_send_state.put ("right_ref", Refjaw_rPoint.getPosition ());
-
+			for (int i = 0; i<6; ++i)		
+			{
+				FrameMarker f = ((MyJawModel)myJawModel).frameMarkers ().
+						get (pointLabels[i]);
+				jo_send_state.put(pointLabels[i], 
+						f.getPosition());
+			}
 			networkHandler.send (jo_send_state);			
 		}
 		catch (JSONException e)
@@ -262,14 +284,14 @@ public class JawRlDemo extends JawDemo
 		} 
 	}
 
-    @Override
+	@Override
 	public void finalize() throws Throwable
 	{
 		networkHandler.closeConnection();
 		super.finalize();
 
 	}
-    
+
 	@Override
 	public void attach(DriverInterface driver) {
 		probesFilename = "rightchew.art";
@@ -281,9 +303,7 @@ public class JawRlDemo extends JawDemo
 
 		this.setViewerEye(new Point3d(0.0, -268.0, -23.0));
 		this.setViewerCenter(new Point3d(0.0, 44.0, 55.0));
-		setIncisorVisible();
-		addMidPoint();
-
+		setIncisorVisible();		
 	}
 
 	@Override

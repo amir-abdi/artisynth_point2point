@@ -14,9 +14,14 @@ public class NetworkHandler extends Thread
 	NetworkReceiveHanlder networkReceiveHandler;
 	//   private int clientNumber;
 	PrintWriter out;
+	int port;
 
-
+	public NetworkHandler(int port) {
+		this.port = port;
+	}
+	
 	public NetworkHandler() {
+		this(6006);
 	}
 
 	public void run() 
@@ -25,7 +30,7 @@ public class NetworkHandler extends Thread
 		{
 			try 
 			{
-				ServerSocket listener = new ServerSocket(6611);
+				ServerSocket listener = new ServerSocket(port);
 				while(true)
 				{         
 					this.socket = listener.accept(); // assuming single client
