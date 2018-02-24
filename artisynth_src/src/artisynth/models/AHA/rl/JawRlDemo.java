@@ -116,7 +116,7 @@ public class JawRlDemo extends JawDemo
 		addMarkers();
 		//sendState();
 		
-		if (args[0].compareTo("port") == 0)
+		if (args[0].equals("-port") == true)
 		{
 			int port = Integer.parseInt(args[1]);			
 			networkHandler = new NetworkHandler(port);
