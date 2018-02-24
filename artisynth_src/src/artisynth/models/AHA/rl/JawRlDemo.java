@@ -137,7 +137,6 @@ public class JawRlDemo extends JawDemo
 			}
 		}
 		log("Exications filled");
-
 	}
 	
 	@Override
