@@ -79,7 +79,7 @@ class ObservationSpace(Space):
 class PointModel2dEnv(Env):
     def __init__(self, dof_action=16, dof_observation=6, success_thres=0.1,
                  verbose=2, log_to_file=True, log_file='log', agent=None,
-                 include_follow=True):
+                 include_follow=True, port=6006):
         self.sock = None
         self.verbose = verbose
         self.success_thres = success_thres
@@ -94,6 +94,7 @@ class PointModel2dEnv(Env):
             self.log('Logging into file: ' + path, verbose=1)
         self.agent = agent
         self.include_follow = include_follow
+        self.port = port
 
     @staticmethod
     def create_log_file(log_file):
@@ -191,7 +192,7 @@ class PointModel2dEnv(Env):
 
     def connect(self):
         self.log('Connecting...', verbose=1)
-        port_number = 6611
+        port_number = self.port
         server_address = ('localhost', port_number)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setblocking(1)
@@ -270,7 +271,7 @@ class PointModel2dEnv(Env):
     def calculate_distance(a, b):
         return np.sqrt(np.sum((b - a) ** 2))
 
-    def calcualte_reward_move(self, ref_pos, prev_follow_pos, new_follow_pos):
+    def calcualte_reward_move(self, ref_pos, prev_follow_pos, new_follow_pos):  # r1
         prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
 
         new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
@@ -289,7 +290,7 @@ class PointModel2dEnv(Env):
                                                                                  False,
                                                                                  10), False
 
-    def calcualte_reward_time(self, ref_pos, prev_follow_pos, new_follow_pos):
+    def calcualte_reward_time(self, ref_pos, prev_follow_pos, new_follow_pos):  # r2
         prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
         new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
         if new_dist < self.success_thres:
@@ -301,7 +302,7 @@ class PointModel2dEnv(Env):
             else:
                 return -1, False
 
-    def calcualte_reward_time_dist(self, ref_pos, prev_follow_pos, new_follow_pos):
+    def calcualte_reward_time_dist(self, ref_pos, prev_follow_pos, new_follow_pos):  # r3
         prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
         new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
         if new_dist < self.success_thres:

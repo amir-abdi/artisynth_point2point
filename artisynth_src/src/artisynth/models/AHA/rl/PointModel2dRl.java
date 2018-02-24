@@ -110,8 +110,14 @@ public class PointModel2dRl extends RootModel
 
 		setupRenderProps();
 
-		int port = Integer.parseInt(args[0]);
-		networkHandler = new NetworkHandler(port);
+		if (args[0].equals("port") == true)
+		{
+			int port = Integer.parseInt(args[1]);
+			networkHandler = new NetworkHandler(port);
+		}
+		else
+			networkHandler = new NetworkHandler();
+		
 		networkHandler.start ();
 	}
 
