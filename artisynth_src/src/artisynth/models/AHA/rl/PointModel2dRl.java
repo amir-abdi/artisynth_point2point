@@ -48,11 +48,6 @@ public class PointModel2dRl extends RootModel
 	public static final Vector3d zero = new Vector3d();
 	Vector3d disturbance = new Vector3d();
 
-	public PointModel2dRl()
-	{
-		Log.logging = true;
-	}
-	
 	NetworkHandler networkHandler;
 	boolean applyDisturbance = false;
 
@@ -91,12 +86,18 @@ public class PointModel2dRl extends RootModel
 	double muscleScaleFactor = 1000;
 	double pointDamping = 0.1;
 
-	public void build (String[] args) throws IOException
+	public PointModel2dRl()
 	{
-		build (defaultDemoType);      
+		Log.logging = true;
 	}
 
-	public void build (DemoType demoType) 
+
+	public void build (String[] args) throws IOException
+	{
+		build (defaultDemoType, args);      
+	}
+
+	public void build (DemoType demoType, String[] args) 
 	{
 		myDemoType = demoType;
 
@@ -109,7 +110,8 @@ public class PointModel2dRl extends RootModel
 
 		setupRenderProps();
 
-		networkHandler = new NetworkHandler();
+		int port = Integer.parseInt(args[0]);
+		networkHandler = new NetworkHandler(port);
 		networkHandler.start ();
 	}
 
@@ -219,7 +221,7 @@ public class PointModel2dRl extends RootModel
 			targetVec.y = 0; 	 
 		if (myDemoType == DemoType.Point1d)
 			targetVec.z = 0; 	 
-		
+
 		targetVec.scale (radius*2);
 		Point3d targetPnt = new Point3d (targetVec.x, targetVec.y, targetVec.z);
 		return targetPnt;
@@ -234,10 +236,6 @@ public class PointModel2dRl extends RootModel
 				switch (jo_receive.getString("type")) 
 				{
 				case "reset":
-					//artisynth.core.driver.Main.getMain().waitForStop();
-//					artisynth.core.driver.Main.getMain().pause();
-//					artisynth.core.driver.Main.getMain().reset();
-//					artisynth.core.driver.Main.getMain().play();
 					resetRefPosition();					
 					break;
 				case "excitations":
@@ -260,11 +258,11 @@ public class PointModel2dRl extends RootModel
 
 	private void sendState()
 	{
-//		try {
-//		Thread.sleep(200);
-//		} catch (InterruptedException e) {
-//			Log.log("Error in sleep sendState: " + e.getMessage());
-//		}
+		//		try {
+		//		Thread.sleep(200);
+		//		} catch (InterruptedException e) {
+		//			Log.log("Error in sleep sendState: " + e.getMessage());
+		//		}
 		JSONObject jo_send_state = new JSONObject ();
 		RigidBody body_ref = mech.rigidBodies ().get ("body_ref");
 		RigidBody body_follower = mech.rigidBodies ().get ("body_follower");
