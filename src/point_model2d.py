@@ -171,9 +171,9 @@ class PointModel2dEnv(Env):
             # reward = self.calculate_reward(distance)
             if self.follower_pos is not None:
                 # reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
-                reward, done = self.calcualte_reward_time(new_ref_pos,
-                                                          self.follower_pos,
-                                                          new_follower_pos)
+                reward, done = self.calcualte_reward_time_dist(new_ref_pos,
+                                                               self.follower_pos,
+                                                               new_follower_pos)
             else:
                 reward, done = (0, False)
             self.set_state(new_ref_pos, new_follower_pos)

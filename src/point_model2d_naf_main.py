@@ -86,7 +86,7 @@ def main(train_test='train'):
         try:
             env = PointModel2dEnv(verbose=2, success_thres=0.2,
                                   dof_action=16, dof_observation=3,
-                                  include_follow=False, port=6006)
+                                  include_follow=False, port=6020)
             env.connect()
             break
         except ConnectionRefusedError as e:
