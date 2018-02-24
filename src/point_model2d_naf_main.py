@@ -110,7 +110,7 @@ def main(train_test='train'):
                                                   sigma=.45,
                                                   dt=1e-1,
                                                   sigma_min=0.05,
-                                                  n_steps_annealing=2000)
+                                                  n_steps_annealing=20000)
         processor = PointModel2dProcessor()
         agent = NAFAgent(nb_actions=nb_actions, V_model=V_model, L_model=L_model, mu_model=mu_model,
                          memory=memory,
