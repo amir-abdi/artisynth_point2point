@@ -166,11 +166,13 @@ class PointModel2dEnv(Env):
             new_ref_pos = state[0:3]
             new_follower_pos = state[3:6]
 
-            # distance = self.calculate_distance(new_ref_pos, new_follower_pos)
+            distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             # reward = self.calculate_reward(distance)
             if self.follower_pos is not None:
                 # reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
-                reward, done = self.calcualte_reward_time(new_ref_pos, self.follower_pos, new_follower_pos)
+                reward, done = self.calcualte_reward_time(new_ref_pos,
+                                                          self.follower_pos,
+                                                          new_follower_pos)
             else:
                 reward, done = (0, False)
             self.set_state(new_ref_pos, new_follower_pos)
@@ -183,14 +185,9 @@ class PointModel2dEnv(Env):
             if not self.include_follow:
                 state = state[:3]
 
-        # if self.agent.step > 120000:
-        #     K.set_value(self.agent.combined_model.optimizer.lr, 1e-4)
-        #     self.success_thres = 0.05
-        # elif self.agent.step > 70000:
-        #     K.set_value(self.agent.combined_model.optimizer.lr, 1e-3)
-        #     self.success_thres = 0.25
+            info = {'distance': distance}
 
-        return state, reward, done, dict()
+        return state, reward, done, info
 
     def connect(self):
         self.log('Connecting...', verbose=1)
@@ -301,6 +298,21 @@ class PointModel2dEnv(Env):
         else:
             if prev_dist - new_dist > 0:
                 return 1/self.agent.episode_step, False
+            else:
+                return -1, False
+
+    def calcualte_reward_time_dist(self, ref_pos, prev_follow_pos, new_follow_pos):
+        prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
+        new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
+        if new_dist < self.success_thres:
+            # achieved done state
+            return 5/self.agent.episode_step, True
+        else:
+            if prev_dist - new_dist > 0:
+                if new_dist < self.success_thres * 4 and new_dist < 1:
+                    return 1 / (self.agent.episode_step * new_dist), False
+                else:
+                    return 1/self.agent.episode_step, False
             else:
                 return -1, False
 
