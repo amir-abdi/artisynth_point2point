@@ -4,6 +4,10 @@ import src.config as c
 from rl.callbacks import RlTensorBoard
 
 
+def mylogistic(x):
+    return 1 / (1 + K.exp(-0.1 * x))
+
+
 get_custom_objects().update({'mylogistic': Activation(mylogistic)})
 
 
@@ -11,10 +15,10 @@ def my_V_model(env):
     # Next, we build a very simple model.
     V_model = Sequential()
     V_model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
-    V_model.add(Dense(32))
+    V_model.add(Dense(128))
     V_model.add(Activation('relu'))
-#    V_model.add(Dense(32))
-#    V_model.add(Activation('relu'))
+    V_model.add(Dense(128))
+    V_model.add(Activation('relu'))
     V_model.add(Dense(1))
     V_model.add(Activation('relu', name='V_final'))
     #V_model.add(Dense(env.action_space.shape[0]))
@@ -26,11 +30,11 @@ def my_V_model(env):
 def my_mu_model(env):
     mu_model = Sequential()
     mu_model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
-#    mu_model.add(Dense(32))
-#    mu_model.add(Activation('relu'))
-#    mu_model.add(Dense(32))
-#    mu_model.add(Activation('relu'))
-    mu_model.add(Dense(32))
+    mu_model.add(Dense(128))
+    mu_model.add(Activation('relu'))
+    mu_model.add(Dense(128))
+    mu_model.add(Activation('relu'))
+    mu_model.add(Dense(128))
     mu_model.add(Activation('relu'))
     mu_model.add(Dense(env.action_space.shape[0]))
     # mu_model.add(Activation('relu'))
@@ -44,11 +48,11 @@ def my_L_model(env):
     action_input = Input(shape=(nb_actions,), name='action_input')
     observation_input = Input(shape=(1,) + env.observation_space.shape, name='observation_input')
     x = Concatenate()([action_input, Flatten()(observation_input)])
-    x = Dense(32)(x)
+    x = Dense(128)(x)
     x = Activation('relu')(x)
-    x = Dense(32)(x)
+    x = Dense(128)(x)
     x = Activation('relu')(x)
-    x = Dense(32)(x)
+    x = Dense(128)(x)
     x = Activation('relu')(x)
     x = Dense(((nb_actions * nb_actions + nb_actions) // 2))(x)
     x = Activation('linear', name='L_final')(x)
@@ -80,7 +84,9 @@ def main(train_test='train'):
 
     while True:
         try:
-            env = PointModel2dEnv(verbose=2, success_thres=0.5)
+            env = PointModel2dEnv(verbose=2, success_thres=0.2,
+                                  dof_action=16, dof_observation=3,
+                                  include_follow=False, port=6020)
             env.connect()
             break
         except ConnectionRefusedError as e:
@@ -92,14 +98,19 @@ def main(train_test='train'):
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
 
-        model_name = 'PointModel2D_NAF_sigmoid_timeR'
-        weight_filename = str(c.trained_directory / 'AC_{}_weights.h5f'.format(model_name))
+        model_name = 'PointModel2D_sig_2,3,3x128Net_r3_[0.2+0.98+1e-1]_noiseAnneal'
+        weight_filename = str(c.trained_directory / 'NAF_{}_weights.h5f'.format(model_name))
 
         mu_model = my_mu_model(env)
         V_model = my_V_model(env)
         L_model = my_L_model(env)
 
-        random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.35, mu=0., sigma=.35, dt=1e-1)
+        random_process = OrnsteinUhlenbeckProcess(size=nb_actions,
+                                                  theta=.15, mu=0.,
+                                                  sigma=.45,
+                                                  dt=1e-1,
+                                                  sigma_min=0.05,
+                                                  n_steps_annealing=20000)
         processor = PointModel2dProcessor()
         agent = NAFAgent(nb_actions=nb_actions, V_model=V_model, L_model=L_model, mu_model=mu_model,
                          memory=memory,
@@ -110,7 +121,7 @@ def main(train_test='train'):
                          processor=processor,
                          target_episode_update=True)
 
-        agent.compile(Adam(lr=1e-2), metrics=['mae'])
+        agent.compile(Adam(lr=1e-1, decay=0.98), metrics=['mae'])
         env.agent = agent
         pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)
@@ -126,6 +137,9 @@ def main(train_test='train'):
 
         if train_test == 'train':
             # train code
+            # nb_max_episode_steps = 200
+            # nb_steps = 5000000
+            # for i in range(0, nb_steps, nb_max_episode_steps):
             training = True
             agent.fit(env,
                       nb_steps=5000000,
@@ -139,7 +153,9 @@ def main(train_test='train'):
             # test code
             training = False
             env.log_to_file = False
-            agent.test(env, nb_episodes=10, visualize=True, nb_max_episode_steps=10)
+            history = agent.test(env, nb_episodes=10, nb_max_episode_steps=10)
+            print(history.history)
+            print('Mean Reward: ', np.mean(history.history['episode_reward']))
 
     except Exception as e:
         if training:
