@@ -7,11 +7,13 @@ import artisynth.models.dynjaw.JawModel;
 import maspack.matrix.Point3d;
 import maspack.matrix.RigidTransform3d;
 
+
 public class MyJawModel extends JawModel{
 	public MyJawModel() throws IOException {
 		super();
 	}
 
+	protected MyJawModel myJawModel;
 	public MyJawModel(String name, boolean fixedLaryngeal,
 			boolean useComplexJoint, boolean useCurvJoint) throws IOException 
 	{
