@@ -59,11 +59,49 @@ public class JawRlDemo extends JawDemo
 	NetworkHandler networkHandler;
 	static float MAX_ROTATION = 20;
 	String[] muscleLabels = new String[]{
-			"n","nne", "ne", "ene",
-			"e", "ese", "se", "sse",
-			"s", "ssw", "sw", "wsw",
-			"w", "wnw", "nw", "nnw"
+			"rat","lat", 
+			"rmt", "lmt",
+			"rpt", "lpt", 
+			"rsm", "lsm",
+			"rdm", "ldm", 			
+			"rmp", "lmp", 
+			"rsp", "lsp",
+			"rip", "lip",
+			"rad", "lad",
+			"ram", "lam",
+			"rgm", "lgm",
+			"rgh", "lgh",
 	};
+
+	/*
+	muscles used:
+	_at Anterior Temporal 
+	_mt Middle Temporal +
+	_pt Posterior Temporal
+	_sm Superficial Masseter
+	_dm Deep Masseter
+	_mp Medial Pterygoid
+	_sp Superior Lateral Pterygoid
+	_ip Inferior Lateral Pterygoid
+	_ad Anterior Digastric
+	_am Anterior Mylohyoid
+	_pm Posterior Mylohyoid
+	_gh Geniohyoid
+	
+	ignored
+	_pd Posterior Digastric
+	_sh Stylohyoid
+	_th Thyrohyoid
+	_pc Posterior Cricoarytenoid
+	_lc Lateral Cricoarytenoid
+	_pct Posterior Cricothyroid
+	_act Anterior Cricothyroid
+	_stet Sternothyroid
+	_steh Sternohyoid
+	_oh Omohyoid
+	__ta Transverse Arytenoid
+	*/
+	
 	String[] pointLabels = new String[]{
 			"mr","lr", "rr",
 			"mf","lf", "rf",
