@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import artisynth.core.mechmodels.FrameMarker;
 import artisynth.models.dynjaw.JawModel;
+import maspack.matrix.AxisAngle;
 import maspack.matrix.Point3d;
 import maspack.matrix.RigidTransform3d;
 
@@ -39,6 +40,12 @@ public class MyJawModel extends JawModel{
 		XCentricRotation.mul(XCentricRotation, XCondyleToWorld);
 		XCentricRotation.mulInverseLeft(XCondyleToWorld, XCentricRotation);
 
+		System.out.println("ref_jaw orientation: " + 
+							myRigidBodies.get("ref_jaw").
+							getOrientation().toString());
+		
+		// reset to origin and then transform
+		myRigidBodies.get("ref_jaw").setOrientation(new AxisAngle(0, 0, 0, 0));
 		myRigidBodies.get("ref_jaw").transformGeometry(XCentricRotation);
 	}
 }

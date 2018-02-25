@@ -57,7 +57,7 @@ public class JawRlDemo extends JawDemo
 
 	protected MechModel model;
 	NetworkHandler networkHandler;
-	static float MAX_ROTATION = 20;
+	static float MAX_ROTATION = 30; // degrees
 	String[] muscleLabels = new String[]{
 			"rat","lat", 
 			"rmt", "lmt",
@@ -164,10 +164,7 @@ public class JawRlDemo extends JawDemo
 			catch (JSONException e) {
 				log("Error in advance: " + e.getMessage());
 			}
-		}
-
-		if (t0 == 1)
-			setRandomJawCentricRotation();
+		}		
 		return super.advance (t0, t1, flags);
 	}
 	public void log(Object obj)
@@ -298,6 +295,7 @@ public class JawRlDemo extends JawDemo
 	{
 		JSONObject jo_send_state = new JSONObject ();
 		try {
+			jo_send_state.put ("type", "state");
 			for (int i = 0; i<6; ++i)		
 			{
 				FrameMarker f = ((MyJawModel)myJawModel).frameMarkers ().

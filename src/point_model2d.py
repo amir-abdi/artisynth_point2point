@@ -26,75 +26,72 @@ from rl.core import Processor
 import numpy as np
 from src.utilities import begin_time
 import src.config as c
-
-
-muscle_labels = ["n", "nne", "ne", "ene",
-                 "e", "ese", "se", "sse",
-                 "s", "ssw", "sw", "wsw",
-                 "w", "wnw", "nw", "nnw"]
-
-
-class ActionSpace(Space):
-    def __init__(self, dof_action=12):
-        self.shape = (dof_action,)
-        self.dof_action = dof_action
-
-    def sample(self, seed=None):
-        if seed is not None:
-            np.random.seed(seed)
-        values = np.random.rand(self.dof_action)
-        return dict(zip(muscle_labels, values))
-
-    def contains(self, x):
-        if x.ndim != 1:
-            return False
-        if x.shape[0] != self.dof_action:
-            return False
-        if np.max(x) > 1 or np.min(x) < 0:
-            return False
-        return True
-
-
-class ObservationSpace(Space):
-    def __init__(self, dof_obs=6, radius=4.11):
-        self.shape = (dof_obs,)
-        self.dof_obs = dof_obs
-        self.radius = radius
-
-    def sample(self, seed=None):
-        if seed is not None:
-            np.random.seed(seed)
-        return (np.random.rand(self.dof_obs) - 0.5) * self.radius * 2
-
-    def contains(self, x):
-        if x.ndim != 1:
-            return False
-        if x.shape[0] != self.dof_obs:
-            return False
-        if np.max(x) > self.radius or np.min(x) < -self.radius:
-            return False
-        return True
+import sys
 
 
 class PointModel2dEnv(Env):
-    def __init__(self, dof_action=16, dof_observation=6, success_thres=0.1,
+
+    class ActionSpace(Space):
+        def __init__(self, muscle_labels):
+            self.dof_action = len(muscle_labels)
+            self.shape = (self.dof_action,)
+            self.muscle_labels = muscle_labels
+
+        def sample(self, seed=None):
+            if seed is not None:
+                np.random.seed(seed)
+            values = np.random.rand(self.dof_action)
+            return dict(zip(self.muscle_labels, values))
+
+        def contains(self, x):
+            if x.ndim != 1:
+                return False
+            if x.shape[0] != self.dof_action:
+                return False
+            if np.max(x) > 1 or np.min(x) < 0:
+                return False
+            return True
+
+    class ObservationSpace(Space):
+        def __init__(self, dof_obs=6, radius=4.11):
+            self.shape = (dof_obs,)
+            self.dof_obs = dof_obs
+            self.radius = radius
+
+        def sample(self, seed=None):
+            if seed is not None:
+                np.random.seed(seed)
+            return (np.random.rand(self.dof_obs) - 0.5) * self.radius * 2
+
+        def contains(self, x):
+            if x.ndim != 1:
+                return False
+            if x.shape[0] != self.dof_obs:
+                return False
+            if np.max(x) > self.radius or np.min(x) < -self.radius:
+                return False
+            return True
+
+    def __init__(self, muscle_labels=None, dof_observation=6, success_thres=0.1,
                  verbose=2, log_to_file=True, log_file='log', agent=None,
                  include_follow=True, port=6006):
         self.sock = None
         self.verbose = verbose
         self.success_thres = success_thres
         self.ref_pos = None
-        self.follower_pos = None
+        # self.follower_pos = None
 
-        self.action_space = ActionSpace(dof_action)
-        self.observation_space = ObservationSpace(dof_observation)  # np.random.rand(dof_observation)
+        self.action_space = type(self).ActionSpace(muscle_labels)
+        self.observation_space = type(self).ObservationSpace(dof_observation)  # np.random.rand(dof_observation)
         self.log_to_file = log_to_file
         if log_to_file:
-            self.logfile, path = PointModel2dEnv.create_log_file(log_file)
+            self.logfile, path = type(self).create_log_file(log_file)
             self.log('Logging into file: ' + path, verbose=1)
         self.agent = agent
         self.include_follow = include_follow
         self.port = port
+        self.prev_distance = None
+        self.muscle_labels = muscle_labels
 
     @staticmethod
     def create_log_file(log_file):
@@ -132,63 +129,77 @@ class PointModel2dEnv(Env):
         except NameError as err:
             self.log('error in send: ' + str(err), verbose=1)
 
-    def receive(self, wait_time=0):
-        import struct
+    def receive(self, wait_time=0.0):
+        # import struct
         try:
             self.sock.settimeout(wait_time)
-            rec_int_bytes = self.sock.recv(4) #.decode("utf-8")
-            rec_int = struct.unpack("!i", rec_int_bytes)[0]
-            rec = self.sock.recv(rec_int).decode("utf-8")
+            rec_int_bytes = []
+            # rec_int_bytes = self.sock.recv(4) #.decode("utf-8")
+            # rec_int = struct.unpack("!i", rec_int_bytes)[0]
+            while len(rec_int_bytes) < 4:
+                rec_int_bytes.extend(self.sock.recv(4 - len(rec_int_bytes)))
+                if rec_int_bytes[0] == 10:
+                    rec_int_bytes = rec_int_bytes[1:]
+            # print('rec_int_bytes: ', bytearray(rec_int_bytes))
+            rec_int = int(bytearray(rec_int_bytes).decode('utf-8'))
+            if rec_int_bytes[:1] == b'\n':
+                rec_int += 1
+            rec_bytes = []
+            while len(rec_bytes) < rec_int:
+                rec_bytes.extend(self.sock.recv(rec_int-len(rec_bytes)))
+            rec = bytearray(rec_bytes).decode("utf-8")
         except TimeoutException:
             self.log("Error: Socket timeout in receive", verbose=1)
             return None
+        except ValueError as err:
+            if rec_int_bytes == b'\n':
+                return None
+            else:
+                self.log(err)
+                raise err
+        except:
+            self.log("Unexpected error:" + str(sys.exc_info()), verbose=1)
+            raise
         finally:
             self.sock.settimeout(0)
         # rec_int = int(rec_int_bytes)  #int.from_bytes(rec_int_bytes, byteorder='big')
         self.log('obj rec: ' + str(rec))
         try:
-            data_dict_result = json.loads(rec)
+            data_dict_result = json.loads(rec.strip())
             return data_dict_result
         except json.decoder.JSONDecodeError as e:
             self.log('error in receive: ' + str(e), verbose=1)
             return None
 
-    @staticmethod
-    def augment_action(action):
-        return dict(zip(muscle_labels, np.nan_to_num(action)))
+    def augment_action(self, action):
+        return dict(zip(self.muscle_labels, np.nan_to_num(action)))
 
     def step(self, action):
-        # todo: assuming that action is always a numpy array of excitations.
-        action = PointModel2dEnv.augment_action(action)
+        action = self.augment_action(action)
         self.send(action, 'excitations')
         time.sleep(0.2)
         state = self.get_state()
         if state is not None:
-            new_ref_pos = state[0:3]
-            new_follower_pos = state[3:6]
+            new_ref_pos = state['ref_pos']
+            new_follower_pos = state['follow_pos']
 
             distance = self.calculate_distance(new_ref_pos, new_follower_pos)
-            # reward = self.calculate_reward(distance)
-            if self.follower_pos is not None:
+            if self.prev_distance is not None:
                 # reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
-                reward, done = self.calcualte_reward_time_dist(new_ref_pos,
-                                                               self.follower_pos,
-                                                               new_follower_pos)
+                reward, done = self.calcualte_reward_time_dist(distance,
+                                                               self.prev_distance)
             else:
                 reward, done = (0, False)
-            self.set_state(new_ref_pos, new_follower_pos)
-            # done = True if distance < self.success_thres else False
+            # self.set_state(new_ref_pos, new_follower_pos)
+            self.prev_distance = distance
             if done:
                 self.log('Achieved done state', verbose=0)
-                # reward = 10
             self.log('****Reward: ' + str(reward), verbose=1, same_line=True)
 
-            if not self.include_follow:
-                state = state[:3]
-
+            state_arr = self.state_json_to_array(state)
             info = {'distance': distance}
 
-        return state, reward, done, info
+        return state_arr, reward, done, info
 
     def connect(self):
         self.log('Connecting...', verbose=1)
@@ -210,15 +221,15 @@ class PointModel2dEnv(Env):
                     raise Exception
             except:
                 self.log('Error in get_state receive data. Reconnecting...', verbose=1)
-                self.connect()
+                # self.connect()
                 self.send(message_type='getState')
                 rec_dict = self.receive(2)
         try:
-            state = PointModel2dEnv.state_json_to_array(rec_dict)
+            state = self.parse_state(rec_dict)
             return state
         except:
-            self.log('Error in parsing get_state', verbose=1)
-        return None
+            self.log('Error in parsing get_state: ' + str(sys.exc_info()), verbose=1)
+            raise
 
     def set_state(self, state):
         self.set_state(state[:3], state[4:])
@@ -228,19 +239,25 @@ class PointModel2dEnv(Env):
         self.follower_pos = follower_pos
 
     @staticmethod
-    def state_json_to_array(state_dict: dict):
-        ref_pos = np.array([float(s) for s in state_dict['ref_pos'].split(" ")])
-        follower_pos = np.array([float(s) for s in state_dict['follow_pos'].split(" ")])
-        return np.concatenate((ref_pos, follower_pos))
+    def parse_state(state_dict: dict):
+        state = {'ref_pos': np.array([float(s) for s in state_dict['ref_pos'].split(" ")]),
+                 'follow_pos': np.array([float(s) for s in state_dict['follow_pos'].split(" ")])}
+        return state
+
+    def state_json_to_array(self, state_dict: dict):
+        state_arr = state_dict['ref_pos']
+        if self.include_follow:
+            state_arr = np.concatenate((state_arr, state_dict['follow_pos']))
+        return state_arr
 
     def reset(self):
         self.send(message_type='reset')
         self.ref_pos = None
-        self.follower_pos = None
+        # self.follower_pos = None
+        self.prev_distance = None
         self.log('Reset', verbose=0)
         state = self.get_state()
-        if not self.include_follow:
-            state = state[:3]
+        state = self.state_json_to_array(state)
         return state
 
     def render(self, mode='human', close=False):
@@ -257,7 +274,7 @@ class PointModel2dEnv(Env):
         pass
 
     def calculate_reward_pos(self, ref_pos, follow_pos, exp=True, constant=1):
-        distance = PointModel2dEnv.calculate_distance(ref_pos, follow_pos)
+        distance = type(self).calculate_distance(ref_pos, follow_pos)
         if distance < self.success_thres:
             # achieved done state
             return 1, True
@@ -272,9 +289,9 @@ class PointModel2dEnv(Env):
         return np.sqrt(np.sum((b - a) ** 2))
 
     def calcualte_reward_move(self, ref_pos, prev_follow_pos, new_follow_pos):  # r1
-        prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
+        prev_dist = type(self).calculate_distance(ref_pos, prev_follow_pos)
 
-        new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
+        new_dist = type(self).calculate_distance(ref_pos, new_follow_pos)
         if new_dist < self.success_thres:
             # achieved done state
             return 1, True
@@ -291,8 +308,8 @@ class PointModel2dEnv(Env):
                                                                                  10), False
 
     def calcualte_reward_time(self, ref_pos, prev_follow_pos, new_follow_pos):  # r2
-        prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
-        new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
+        prev_dist = type(self).calculate_distance(ref_pos, prev_follow_pos)
+        new_dist = type(self).calculate_distance(ref_pos, new_follow_pos)
         if new_dist < self.success_thres:
             # achieved done state
             return 5/self.agent.episode_step, True
@@ -302,9 +319,7 @@ class PointModel2dEnv(Env):
             else:
                 return -1, False
 
-    def calcualte_reward_time_dist(self, ref_pos, prev_follow_pos, new_follow_pos):  # r3
-        prev_dist = PointModel2dEnv.calculate_distance(ref_pos, prev_follow_pos)
-        new_dist = PointModel2dEnv.calculate_distance(ref_pos, new_follow_pos)
+    def calcualte_reward_time_dist(self, new_dist, prev_dist):  # r3
         if new_dist < self.success_thres:
             # achieved done state
             return 5/self.agent.episode_step, True

@@ -11,6 +11,11 @@ def mylogistic(x):
 get_custom_objects().update({'mylogistic': Activation(mylogistic)})
 
 
+muscle_labels = ["n", "nne", "ne", "ene",
+                 "e", "ese", "se", "sse",
+                 "s", "ssw", "sw", "wsw",
+                 "w", "wnw", "nw", "nnw"]
+
 def my_V_model(env):
     # Next, we build a very simple model.
     V_model = Sequential()
@@ -85,8 +90,9 @@ def main(train_test='train'):
     while True:
         try:
             env = PointModel2dEnv(verbose=2, success_thres=0.2,
-                                  dof_action=16, dof_observation=3,
-                                  include_follow=False, port=6020)
+                                  dof_observation=3,
+                                  include_follow=False, port=6020,
+                                  muscle_labels=muscle_labels)
             env.connect()
             break
         except ConnectionRefusedError as e:
@@ -98,8 +104,8 @@ def main(train_test='train'):
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
 
-        model_name = 'PointModel2D_sig_2,3,3x128Net_r3_[0.2+0.98+1e-1]_noiseAnneal'
-        weight_filename = str(c.trained_directory / 'NAF_{}_weights.h5f'.format(model_name))
+        model_name = 'sig_2,3,3x128Net_r3_[0.2+0.98+1e-1]_noiseAnneal'
+        weight_filename = str(c.trained_directory / 'NAF_PointModel2D_{}_weights.h5f'.format(model_name))
 
         mu_model = my_mu_model(env)
         V_model = my_V_model(env)
@@ -107,10 +113,10 @@ def main(train_test='train'):
 
         random_process = OrnsteinUhlenbeckProcess(size=nb_actions,
                                                   theta=.15, mu=0.,
-                                                  sigma=.45,
+                                                  sigma=.65,
                                                   dt=1e-1,
                                                   sigma_min=0.05,
-                                                  n_steps_annealing=20000)
+                                                  n_steps_annealing=200000)
         processor = PointModel2dProcessor()
         agent = NAFAgent(nb_actions=nb_actions, V_model=V_model, L_model=L_model, mu_model=mu_model,
                          memory=memory,
@@ -121,7 +127,7 @@ def main(train_test='train'):
                          processor=processor,
                          target_episode_update=True)
 
-        agent.compile(Adam(lr=1e-1, decay=0.98), metrics=['mae'])
+        agent.compile(Adam(lr=1e-2, decay=0.98), metrics=['mae'])
         env.agent = agent
         pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)
@@ -137,9 +143,6 @@ def main(train_test='train'):
 
         if train_test == 'train':
             # train code
-            # nb_max_episode_steps = 200
-            # nb_steps = 5000000
-            # for i in range(0, nb_steps, nb_max_episode_steps):
             training = True
             agent.fit(env,
                       nb_steps=5000000,
