@@ -53,6 +53,11 @@ public class PointModelGenericRl extends PointModel2dRl
 			{
 				muscleOptLen = Double.parseDouble(args[i+1]);
 			}
+			else if (args[i].equals("-radius"))
+			{
+				point_generate_radius = Double.parseDouble(args[i+1]);
+			}
+			
 		}		
 	}
 	

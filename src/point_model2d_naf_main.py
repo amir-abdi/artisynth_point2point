@@ -84,14 +84,21 @@ class MyNAFAgent(NAFAgent):
 
 
 def main(train_test='train'):
+
+    num_muslces = 16
+    port = 7016
+    model_name = 'sig_1,1,3x128Net_r2_[0.999995+1e-1]_noiseAnneal_16muscles'
+
     training = False
+    muscle_labels = ["m"+str(i) for i in np.array(range(num_muslces))]
+
     get_custom_objects().update({'mylogistic': Activation(mylogistic)})
 
     while True:
         try:
             env = PointModel2dEnv(verbose=2, success_thres=0.2,
                                   dof_observation=3,
-                                  include_follow=False, port=6020,
+                                  include_follow=False, port=port,
                                   muscle_labels=muscle_labels)
             env.connect()
             break
@@ -104,7 +111,7 @@ def main(train_test='train'):
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
 
-        model_name = 'sig_1,1,3x128Net_r2_[0.999995+1e-1]_noiseAnneal'
+
         weight_filename = str(c.trained_directory / 'NAF_PointModel2D_{}_weights.h5f'.format(model_name))
 
         mu_model = my_mu_model(env)

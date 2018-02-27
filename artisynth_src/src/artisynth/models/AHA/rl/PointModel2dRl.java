@@ -46,7 +46,7 @@ import java.lang.Math;
 public class PointModel2dRl extends RootModel
 {
 	//   NumericInputProbe inputProbe; don't need a probe. just set the target position
-	static double MUSCLE_SPREAD_RADIUS = 4.11 / 1.42; // ultimate position with current settings of max muscle excitations
+	static double point_generate_radius = 4.11; // ultimate position with current settings of max muscle excitations
 	public static final Vector3d zero = new Vector3d();
 	Vector3d disturbance = new Vector3d();
 
@@ -312,7 +312,7 @@ public class PointModel2dRl extends RootModel
 	private void resetRefPosition() 
 	{	   
 		RigidBody body_ref = mech.rigidBodies ().get ("body_ref");
-		Point3d pos = getRandomTarget (new Point3d (0, 0,0), MUSCLE_SPREAD_RADIUS);               
+		Point3d pos = getRandomTarget (new Point3d (0, 0,0), point_generate_radius);               
 		body_ref .setPosition (pos);
 	}
 
