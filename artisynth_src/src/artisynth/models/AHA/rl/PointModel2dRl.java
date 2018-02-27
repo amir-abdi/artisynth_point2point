@@ -1,6 +1,7 @@
 package artisynth.models.AHA.rl;
 
 import java.awt.Color;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
@@ -40,6 +41,7 @@ import maspack.render.Renderer;
 import maspack.render.Renderer.LineStyle;
 import maspack.render.Renderer.Shading;
 import maspack.spatialmotion.SpatialInertia;
+import java.lang.Math;
 
 public class PointModel2dRl extends RootModel
 {
@@ -70,6 +72,7 @@ public class PointModel2dRl extends RootModel
 			"e", "ese", "se", "sse",
 			"s", "ssw", "sw", "wsw",
 			"w", "wnw", "nw", "nnw"
+			
 	};
 
 	double mass = 0.001; //kg
@@ -91,9 +94,9 @@ public class PointModel2dRl extends RootModel
 		Log.logging = true;
 	}
 
-
+	int port = 6020;
 	public void build (String[] args) throws IOException
-	{
+	{		
 		build (defaultDemoType, args);      
 	}
 
@@ -110,14 +113,13 @@ public class PointModel2dRl extends RootModel
 
 		setupRenderProps();
 
-		if (args[0].equals("-port") == true)
-		{
-			int port = Integer.parseInt(args[1]);
-			networkHandler = new NetworkHandler(port);
-		}
-		else
-			networkHandler = new NetworkHandler();
+		for (int i = 0; i< args.length; i+=2)
+			if (args[i].equals("-port") == true)
+			{
+				port = Integer.parseInt(args[i+1]);			
+			}
 		
+		networkHandler = new NetworkHandler(port);
 		networkHandler.start ();
 	}
 
@@ -220,21 +222,35 @@ public class PointModel2dRl extends RootModel
 	public Point3d getRandomTarget(Point3d center, double radius)
 	{		
 		Random rand = new Random ();      
-		Vector3d targetVec = new Vector3d(rand.nextDouble ()-0.5, 
-				rand.nextDouble ()-0.5, 
-				rand.nextDouble ()-0.5);
+		
+		
+		double theta = rand.nextDouble() * 3.1415;
+		double phi = rand.nextDouble() * 3.1415;		
+		double r = rand.nextDouble() * radius;
+		
+		double x = r * Math.cos(theta) * Math.sin(phi);
+		double y = r * Math.sin(theta) * Math.sin(phi);
+		double z = r * Math.cos(phi);
+		
+		//Vector3d targetVec = new Vector3d(rand.nextDouble ()-0.5, 
+			//								rand.nextDouble ()-0.5, 
+				//							rand.nextDouble ()-0.5);		
+		//targetVec.scale (radius*2);
+		
+		Vector3d targetVec = new Vector3d(x,y,z);
+		
 		if (myDemoType == DemoType.Point2d)
 			targetVec.y = 0; 	 
 		if (myDemoType == DemoType.Point1d)
 			targetVec.z = 0; 	 
 
-		targetVec.scale (radius*2);
+		
 		Point3d targetPnt = new Point3d (targetVec.x, targetVec.y, targetVec.z);
 		return targetPnt;
 	}
 
 	public StepAdjustment advance(double t0, double t1, int flags)
-	{	   	        
+	{	   	        		
 		JSONObject jo_receive = networkHandler.getMessage();
 		if (jo_receive != null)
 		{			
@@ -407,6 +423,7 @@ double prev_time_step = 0;
 		int[] z = new int[]{-1,0,1};
 		double eps = 1e-4;
 
+		int muscleCount= 0;
 		for (int i = 0; i < x.length; i++) {
 			for (int j = 0; j < y.length; j++) {
 				for (int k = 0; k < z.length; k++) {
@@ -423,7 +440,8 @@ double prev_time_step = 0;
 					endPt.setDynamic(false);
 					mech.addParticle(endPt);
 					Muscle m = addMuscle(endPt);
-					m.setName(String.format("x%dy%dz%d",x[i],y[j],z[k]));
+					//m.setName(String.format("x%dy%dz%d",x[i],y[j],z[k]));
+					m.setName("m" + Integer.toString(muscleCount++));
 					RenderProps.setLineColor(m, Color.RED);
 				}
 			}

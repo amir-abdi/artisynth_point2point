@@ -22,8 +22,8 @@ def my_V_model(env):
     V_model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
     V_model.add(Dense(128))
     V_model.add(Activation('relu'))
-    V_model.add(Dense(128))
-    V_model.add(Activation('relu'))
+    # V_model.add(Dense(128))
+    # V_model.add(Activation('relu'))
     V_model.add(Dense(1))
     V_model.add(Activation('relu', name='V_final'))
     #V_model.add(Dense(env.action_space.shape[0]))
@@ -37,10 +37,10 @@ def my_mu_model(env):
     mu_model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
     mu_model.add(Dense(128))
     mu_model.add(Activation('relu'))
-    mu_model.add(Dense(128))
-    mu_model.add(Activation('relu'))
-    mu_model.add(Dense(128))
-    mu_model.add(Activation('relu'))
+    # mu_model.add(Dense(128))
+    # mu_model.add(Activation('relu'))
+    # mu_model.add(Dense(128))
+    # mu_model.add(Activation('relu'))
     mu_model.add(Dense(env.action_space.shape[0]))
     # mu_model.add(Activation('relu'))
     mu_model.add(Activation('sigmoid', name='mu_final'))
@@ -104,7 +104,7 @@ def main(train_test='train'):
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
 
-        model_name = 'sig_2,3,3x128Net_r3_[0.2+0.98+1e-1]_noiseAnneal'
+        model_name = 'sig_1,1,3x128Net_r2_[0.999995+1e-1]_noiseAnneal'
         weight_filename = str(c.trained_directory / 'NAF_PointModel2D_{}_weights.h5f'.format(model_name))
 
         mu_model = my_mu_model(env)
@@ -113,7 +113,7 @@ def main(train_test='train'):
 
         random_process = OrnsteinUhlenbeckProcess(size=nb_actions,
                                                   theta=.15, mu=0.,
-                                                  sigma=.65,
+                                                  sigma=.45,
                                                   dt=1e-1,
                                                   sigma_min=0.05,
                                                   n_steps_annealing=200000)
@@ -127,7 +127,7 @@ def main(train_test='train'):
                          processor=processor,
                          target_episode_update=True)
 
-        agent.compile(Adam(lr=1e-2, decay=0.98), metrics=['mae'])
+        agent.compile(Adam(lr=1e-1, decay=0.999995), metrics=['mae'])
         env.agent = agent
         pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)

@@ -32,8 +32,8 @@ public class NetworkReceiveHanlder extends Thread
 				if (jo != null)
 				{
 					Log.log("Obj received: " + jo.toString());
-					if (lock.isLocked())
-						return;
+					//if (lock.isLocked())
+						//return;
 					try {							
 						Log.log("Locking lock in run");
 						lock.lock();
