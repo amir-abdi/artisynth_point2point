@@ -20,7 +20,7 @@ def my_V_model(env):
     # Next, we build a very simple model.
     V_model = Sequential()
     V_model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
-    V_model.add(Dense(128))
+    V_model.add(Dense(32))
     V_model.add(Activation('relu'))
     # V_model.add(Dense(128))
     # V_model.add(Activation('relu'))
@@ -35,7 +35,7 @@ def my_V_model(env):
 def my_mu_model(env):
     mu_model = Sequential()
     mu_model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
-    mu_model.add(Dense(128))
+    mu_model.add(Dense(32))
     mu_model.add(Activation('relu'))
     # mu_model.add(Dense(128))
     # mu_model.add(Activation('relu'))
@@ -53,11 +53,11 @@ def my_L_model(env):
     action_input = Input(shape=(nb_actions,), name='action_input')
     observation_input = Input(shape=(1,) + env.observation_space.shape, name='observation_input')
     x = Concatenate()([action_input, Flatten()(observation_input)])
-    x = Dense(128)(x)
+    x = Dense(32)(x)
     x = Activation('relu')(x)
-    x = Dense(128)(x)
+    x = Dense(32)(x)
     x = Activation('relu')(x)
-    x = Dense(128)(x)
+    x = Dense(32)(x)
     x = Activation('relu')(x)
     x = Dense(((nb_actions * nb_actions + nb_actions) // 2))(x)
     x = Activation('linear', name='L_final')(x)
@@ -86,8 +86,8 @@ class MyNAFAgent(NAFAgent):
 def main(train_test='train'):
 
     num_muslces = 16
-    port = 7016
-    model_name = 'sig_1,1,3x128Net_r2_[0.999995+1e-1]_noiseAnneal_16muscles'
+    port = 7017
+    model_name = 'sig_1,1,3x32Net_r2_[1e-1]_th0.8_16muscles'
 
     training = False
     muscle_labels = ["m"+str(i) for i in np.array(range(num_muslces))]
@@ -96,7 +96,7 @@ def main(train_test='train'):
 
     while True:
         try:
-            env = PointModel2dEnv(verbose=2, success_thres=0.2,
+            env = PointModel2dEnv(verbose=2, success_thres=0.8,
                                   dof_observation=3,
                                   include_follow=False, port=port,
                                   muscle_labels=muscle_labels)
@@ -122,8 +122,9 @@ def main(train_test='train'):
                                                   theta=.15, mu=0.,
                                                   sigma=.45,
                                                   dt=1e-1,
-                                                  sigma_min=0.05,
-                                                  n_steps_annealing=200000)
+                                                  #sigma_min=0.05,
+                                                  #n_steps_annealing=400000
+                                                  )
         processor = PointModel2dProcessor()
         agent = NAFAgent(nb_actions=nb_actions, V_model=V_model, L_model=L_model, mu_model=mu_model,
                          memory=memory,
@@ -134,7 +135,8 @@ def main(train_test='train'):
                          processor=processor,
                          target_episode_update=True)
 
-        agent.compile(Adam(lr=1e-1, decay=0.999995), metrics=['mae'])
+        agent.compile(Adam(lr=1e-1,  # decay=0.999997
+                           ), metrics=['mae'])
         env.agent = agent
         pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)
