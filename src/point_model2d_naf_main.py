@@ -43,7 +43,7 @@ def my_mu_model(env):
     # mu_model.add(Activation('relu'))
     mu_model.add(Dense(env.action_space.shape[0]))
     # mu_model.add(Activation('relu'))
-    mu_model.add(Activation('sigmoid', name='mu_final'))
+    mu_model.add(Activation('mylogistic', name='mu_final'))
     print(mu_model.summary())
     return mu_model
 
@@ -85,22 +85,37 @@ class MyNAFAgent(NAFAgent):
 
 def main(train_test='train'):
 
-    num_muslces = 18
-    port = 7018
-    model_name = 'sig_2,2,3x32Net_r4_[1e-2]_th0.5_[t.35s.35]_nAnn[0.05,4e5]_{}muscles'.format(num_muslces)
+    num_muslces = 6
+    port =  6032
 
-    training = False
+    success_thres = 0.2
+    dof_observation = 3
+
+    theta = .35
+    mu = 0.
+    sigma = .35
+    dt = 1e-1
+    sigma_min = 0.05
+    n_steps_annealing = 100000
+
+    gamma=0.99
+    lr = 1e-2
+
+    model_name = 'mylogist0.1_2,2,3x32Net_r4_[1e-2]_th0.2_[t.35s.35]_nAnn[0.05,1e5]_{}muscles'.format(num_muslces)
+    # model_name = 'sig_2,2,3x32Net_r4_[1e-2]_th0.5_[t.35s.35]_nAnn[0.05,4e5]_{}muscles'.format(num_muslces)
+
+
     muscle_labels = ["m"+str(i) for i in np.array(range(num_muslces))]
-
     get_custom_objects().update({'mylogistic': Activation(mylogistic)})
 
+    training = False
     weight_filename = str(c.trained_directory / 'NAF_PointModel2D_{}_weights.h5f'.format(model_name))
     log_file_name = begin_time + '_' + model_name
 
     while True:
         try:
-            env = PointModel2dEnv(verbose=2, success_thres=0.5,
-                                  dof_observation=3,
+            env = PointModel2dEnv(verbose=2, success_thres=success_thres,
+                                  dof_observation=dof_observation,
                                   include_follow=False, port=port,
                                   muscle_labels=muscle_labels,
                                   log_file=log_file_name)
@@ -121,11 +136,12 @@ def main(train_test='train'):
         L_model = my_L_model(env)
 
         random_process = OrnsteinUhlenbeckProcess(size=nb_actions,
-                                                  theta=.35, mu=0.,
-                                                  sigma=.35,
-                                                  dt=1e-1,
-                                                  sigma_min=0.05,
-                                                  n_steps_annealing=400000
+                                                  theta=theta,
+                                                  mu=mu,
+                                                  sigma=sigma,
+                                                  dt=dt,
+                                                  sigma_min=sigma_min,
+                                                  n_steps_annealing=n_steps_annealing
                                                   )
         processor = PointModel2dProcessor()
         agent = NAFAgent(nb_actions=nb_actions, V_model=V_model, L_model=L_model, mu_model=mu_model,
@@ -133,12 +149,12 @@ def main(train_test='train'):
                          episode_memory=episode_memory,
                          nb_steps_warmup=200,
                          random_process=random_process,
-                         gamma=.99,  # discount
+                         gamma=gamma,  # discount
                          target_model_update=200,  # 1e-2,
                          processor=processor,
                          target_episode_update=True)
 
-        agent.compile(Adam(lr=1e-2,  # decay=0.999997
+        agent.compile(Adam(lr=lr,  # decay=0.999997
                            ), metrics=['mse'])
         env.agent = agent
         pprint.pprint(agent.get_config(False))
