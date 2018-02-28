@@ -104,7 +104,7 @@ public class PointModel2dRl extends RootModel
 	{
 		myDemoType = demoType;
 
-		mech = new MechModel("mech");
+		mech = new MechModel("mech");		
 		mech.setGravity(0, 0, 0);
 		mech.setIntegrator (Integrator.Trapezoidal); // todo: why?
 		mech.setMaxStepSize (0.01);
@@ -266,6 +266,9 @@ public class PointModel2dRl extends RootModel
 				case "getState":
 					sendState();
 					break;
+				case "setName":
+					String name = jo_receive.getString("name");					
+					mech.setName(name);
 				default:
 					break;
 				}

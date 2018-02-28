@@ -84,6 +84,7 @@ class PointModel2dEnv(Env):
         self.action_space = type(self).ActionSpace(muscle_labels)
         self.observation_space = type(self).ObservationSpace(dof_observation)  # np.random.rand(dof_observation)
         self.log_to_file = log_to_file
+        self.log_file_name = log_file
         if log_to_file:
             self.logfile, path = type(self).create_log_file(log_file)
             self.log('Logging into file: ' + path, verbose=1)
@@ -182,6 +183,13 @@ class PointModel2dEnv(Env):
         self.sock.setblocking(1)
         self.sock.connect(server_address)
         self.log('Conneted to server at: {}'.format(server_address), verbose=1)
+
+        import re
+        send_name = re.sub('[./:*?]', '', str(self.log_file_name).strip('0123456789'))
+        self.set_name(send_name)
+
+    def set_name(self, name):
+        self.send({'name': name}, message_type='setName')
 
     def get_state(self):
         self.send(message_type='getState')
