@@ -86,8 +86,8 @@ class MyNAFAgent(NAFAgent):
 def main(train_test='train'):
 
     num_muslces = 16
-    port = 7017
-    model_name = 'sig_1,1,3x32Net_r2_[1e-1]_th0.8_16muscles'
+    port = 7021
+    model_name = 'sig_2,2,3x32Net_r4_[1e-2]_th0.5_[t.35s.35]_{}muscles'.format(num_muslces)
 
     training = False
     muscle_labels = ["m"+str(i) for i in np.array(range(num_muslces))]
@@ -96,7 +96,7 @@ def main(train_test='train'):
 
     while True:
         try:
-            env = PointModel2dEnv(verbose=2, success_thres=0.8,
+            env = PointModel2dEnv(verbose=2, success_thres=0.5,
                                   dof_observation=3,
                                   include_follow=False, port=port,
                                   muscle_labels=muscle_labels)
@@ -119,8 +119,8 @@ def main(train_test='train'):
         L_model = my_L_model(env)
 
         random_process = OrnsteinUhlenbeckProcess(size=nb_actions,
-                                                  theta=.15, mu=0.,
-                                                  sigma=.45,
+                                                  theta=.35, mu=0.,
+                                                  sigma=.35,
                                                   dt=1e-1,
                                                   #sigma_min=0.05,
                                                   #n_steps_annealing=400000
@@ -135,14 +135,14 @@ def main(train_test='train'):
                          processor=processor,
                          target_episode_update=True)
 
-        agent.compile(Adam(lr=1e-1,  # decay=0.999997
+        agent.compile(Adam(lr=1e-2,  # decay=0.999997
                            ), metrics=['mae'])
         env.agent = agent
         pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)
 
         tensorboard = RlTensorBoard(
-            log_dir=str(c.tensorboard_log_directory / begin_time),
+            log_dir=str(c.tensorboard_log_directory / (begin_time + '_' + model_name)),
             histogram_freq=1, batch_size=32, write_graph=True,
             write_grads=True, write_images=False, embeddings_freq=0,
             embeddings_layer_names=None, embeddings_metadata=None,

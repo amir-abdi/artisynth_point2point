@@ -174,33 +174,6 @@ class PointModel2dEnv(Env):
     def augment_action(self, action):
         return dict(zip(self.muscle_labels, np.nan_to_num(action)))
 
-    def step(self, action):
-        action = self.augment_action(action)
-        self.send(action, 'excitations')
-        time.sleep(0.1)
-        state = self.get_state()
-        if state is not None:
-            new_ref_pos = state['ref_pos']
-            new_follower_pos = state['follow_pos']
-
-            distance = self.calculate_distance(new_ref_pos, new_follower_pos)
-            if self.prev_distance is not None:
-                # reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
-                reward, done = self.calcualte_reward_time_dist(distance, self.prev_distance)
-                # reward, done = self.calcualte_reward_time(distance, self.prev_distance)
-            else:
-                reward, done = (0, False)
-            # self.set_state(new_ref_pos, new_follower_pos)
-            self.prev_distance = distance
-            if done:
-                self.log('Achieved done state', verbose=0)
-            self.log('****Reward: ' + str(reward), verbose=1, same_line=True)
-
-            state_arr = self.state_json_to_array(state)
-            info = {'distance': distance}
-
-        return state_arr, reward, done, info
-
     def connect(self):
         self.log('Connecting...', verbose=1)
         port_number = self.port
@@ -288,6 +261,35 @@ class PointModel2dEnv(Env):
     def calculate_distance(a, b):
         return np.sqrt(np.sum((b - a) ** 2))
 
+    def step(self, action):
+        action = self.augment_action(action)
+        self.send(action, 'excitations')
+        time.sleep(0.1)
+        state = self.get_state()
+        if state is not None:
+            new_ref_pos = state['ref_pos']
+            new_follower_pos = state['follow_pos']
+
+            distance = self.calculate_distance(new_ref_pos, new_follower_pos)
+            if self.prev_distance is not None:
+                # reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
+                # reward, done = self.calcualte_reward_time_n5(distance, self.prev_distance)  # r2
+                # reward, done = self.calcualte_reward_time_dist(distance, self.prev_distance)  # r3
+                reward, done = self.calcualte_reward_time_5(distance,self.prev_distance)  # r4
+                # reward, done = self.calcualte_reward_time_dist_nn5(distance, self.prev_distance)  # r5
+            else:
+                reward, done = (0, False)
+            # self.set_state(new_ref_pos, new_follower_pos)
+            self.prev_distance = distance
+            if done:
+                self.log('Achieved done state', verbose=0)
+            self.log('****Reward: ' + str(reward), verbose=1, same_line=True)
+
+            state_arr = self.state_json_to_array(state)
+            info = {'distance': distance}
+
+        return state_arr, reward, done, info
+
     def calcualte_reward_move(self, ref_pos, prev_follow_pos, new_follow_pos):  # r1
         prev_dist = type(self).calculate_distance(ref_pos, prev_follow_pos)
 
@@ -307,7 +309,7 @@ class PointModel2dEnv(Env):
                                                                                  False,
                                                                                  10), False
 
-    def calcualte_reward_time(self, new_dist, prev_dist):  # r2
+    def calcualte_reward_time_n5(self, new_dist, prev_dist):  # r2
         # prev_dist = type(self).calculate_distance(ref_pos, prev_follow_pos)
         # new_dist = type(self).calculate_distance(ref_pos, new_follow_pos)
         if new_dist < self.success_thres:
@@ -319,16 +321,32 @@ class PointModel2dEnv(Env):
             else:
                 return -1, False
 
-    def calcualte_reward_time_dist(self, new_dist, prev_dist):  # r3
+    def calcualte_reward_time_dist_n5(self, new_dist, prev_dist):  # r3
         if new_dist < self.success_thres:
             # achieved done state
             return 5/self.agent.episode_step, True
         else:
             if prev_dist - new_dist > 0:
-                # if new_dist < self.success_thres * 4 and new_dist < 1:
-                #     return 1 / (self.agent.episode_step * new_dist), False
-                # else:
-                #     return 1/self.agent.episode_step, False
+                return 1 / (self.agent.episode_step * new_dist), False
+            else:
+                return -1, False
+
+    def calcualte_reward_time_5(self, new_dist, prev_dist):  # r4
+        if new_dist < self.success_thres:
+            # achieved done state
+            return 5, True
+        else:
+            if prev_dist - new_dist > 0:
+                return 1/self.agent.episode_step, False
+            else:
+                return -1, False
+
+    def calcualte_reward_time_dist_nn5(self, new_dist, prev_dist):  # r5
+        if new_dist < self.success_thres:
+            # achieved done state
+            return 5/(self.agent.episode_step * new_dist), True
+        else:
+            if prev_dist - new_dist > 0:
                 return 1 / (self.agent.episode_step * new_dist), False
             else:
                 return -1, False
