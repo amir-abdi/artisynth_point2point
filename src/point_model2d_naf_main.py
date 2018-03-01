@@ -1,3 +1,7 @@
+import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 from src.import_file import *
 from src.utilities import *
 import src.config as c
@@ -85,10 +89,10 @@ class MyNAFAgent(NAFAgent):
 
 def main(train_test='train'):
 
-    num_muslces = 6
-    port =  6032
+    num_muslces = 14
+    port = 7014
 
-    success_thres = 0.2
+    success_thres = 0.5
     dof_observation = 3
 
     theta = .35
@@ -98,12 +102,15 @@ def main(train_test='train'):
     sigma_min = 0.05
     n_steps_annealing = 100000
 
-    gamma=0.99
+    gamma = 0.99
     lr = 1e-2
 
-    model_name = 'mylogist0.1_2,2,3x32Net_r4_[1e-2]_th0.2_[t.35s.35]_nAnn[0.05,1e5]_{}muscles'.format(num_muslces)
+    # model_name = 'mylogist0.1_2,2,3x32Net_r4_[1e-2]_th0.2_[t.35s.35]_nAnn[0.05,1e5]_{}muscles'.format(num_muslces)
     # model_name = 'sig_2,2,3x32Net_r4_[1e-2]_th0.5_[t.35s.35]_nAnn[0.05,4e5]_{}muscles'.format(num_muslces)
+    # model_name = 'sig_2,2,3x32Net_r4_[1e-2]_th0.5_[t.35s.35]_nAnn[0.05,4e5]_6muscles_noNoiseR5'
 
+    model_name = 'mylogistic_2,2,3x32Net_r4_lr{}_th{}_[t{}s{}]_nAnn[{},{}]_{}muscles3D'.\
+        format(lr, success_thres, theta, sigma, sigma_min, n_steps_annealing, num_muslces)
 
     muscle_labels = ["m"+str(i) for i in np.array(range(num_muslces))]
     get_custom_objects().update({'mylogistic': Activation(mylogistic)})
@@ -143,6 +150,7 @@ def main(train_test='train'):
                                                   sigma_min=sigma_min,
                                                   n_steps_annealing=n_steps_annealing
                                                   )
+        # random_process = None
         processor = PointModel2dProcessor()
         agent = NAFAgent(nb_actions=nb_actions, V_model=V_model, L_model=L_model, mu_model=mu_model,
                          memory=memory,
@@ -184,8 +192,9 @@ def main(train_test='train'):
             # test code
             training = False
             env.log_to_file = False
-            history = agent.test(env, nb_episodes=10, nb_max_episode_steps=10)
+            history = agent.test(env, nb_episodes=100, nb_max_episode_steps=10)
             print(history.history)
+            print('Average last distance: ', np.mean(history.history['last_distance']))
             print('Mean Reward: ', np.mean(history.history['episode_reward']))
 
     except Exception as e:

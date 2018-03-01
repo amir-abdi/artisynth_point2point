@@ -84,7 +84,7 @@ public class PointModel2dRl extends RootModel
 	double muscleF = 1.0;
 	double passiveFraction = 0.1;//1e-9;
 	double muscleOptLen = len*0.5; //len*1.5); 
-	double muscleMaxLen = muscleLabels.length;//len*2;
+	double muscleMaxLen = len*2; //muscleLabels.length;//len*2;
 	double muscleD = 0.001;
 	double muscleScaleFactor = 1000;
 	double pointDamping = 0.1;
