@@ -14,14 +14,19 @@ def load_weights(agent, weight_filename):
         print('weights loaded from ', str(weight_filename))
 
 
-def save_weights(agent, weight_filename):
-    print('Save weights? (Y|N)')
-    answer = input()
-    if answer.lower() != 'n':
+def save_weights(agent, weight_filename, ask=True):
+    if ask:
+        print('Save weights? (Y|N)')
+        answer = input()
+        if answer.lower() != 'n':
+            agent.save_weights(weight_filename, overwrite=True)
+            print('results saved to ', weight_filename)
+        else:
+            print('weights not saved')
+    else:
         agent.save_weights(weight_filename, overwrite=True)
         print('results saved to ', weight_filename)
-    else:
-        print('weights not saved')
+
 
 
 def mylogistic(x):

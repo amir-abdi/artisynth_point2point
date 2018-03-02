@@ -27,6 +27,7 @@ import numpy as np
 from src.utilities import begin_time
 import src.config as c
 import sys
+from src.utilities import save_weights
 
 
 class PointModel2dEnv(Env):
@@ -270,6 +271,9 @@ class PointModel2dEnv(Env):
         return np.sqrt(np.sum((b - a) ** 2))
 
     def step(self, action):
+        if self.agent.step % 500 == 0:
+            save_weights(self.agent, self.log_file_name, False)
+
         action = self.augment_action(action)
         self.send(action, 'excitations')
         time.sleep(0.1)
