@@ -1,5 +1,4 @@
 # artisynth_rl
-Deep Reinforcement Learning for Biomechanical Modeling
+This is the code for "Muscle Excitation Estimation in Biomechanical Simulation Using NAF Reinforcement Learning" paper submitted to the Computational Biomechanics for Medicine XIII, A MICCAI 2018 Workshop, Granada, Spain, 2018 September 16.
 
-./artisynth -noTimeline -model artisynth.models.AHA.rl.PointModelGenericRl [ -port 7033 -num 10 -demoType -muscleOptLen 0.1 -radius 5 ] -play -noGui
-
+Documentation will be completed prior to the workshop.
