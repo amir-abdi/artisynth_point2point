@@ -1,15 +1,14 @@
 import time
 from socket import timeout as TimeoutException
-import json
-from src.consts import EPSILON
 import socket
-from typing import Union
-# from typing import get_type_hints
-from rl.agents import DDPGAgent
-from pathlib import Path
-from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 import json
-from threading import Thread
+from rl.core import Env
+from rl.core import Space
+from rl.core import Processor
+import numpy as np
+from src.utilities import begin_time
+import src.config as c
+import sys
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
@@ -20,23 +19,17 @@ from keras.optimizers import Adam
 from keras import backend as K
 from rl.policy import BoltzmannQPolicy
 from rl.memory import SequentialMemory
-from rl.core import Env
-from rl.core import Space
-from rl.core import Processor
-import numpy as np
-from src.utilities import begin_time
-import src.config as c
-import sys
-from src.utilities import save_weights
+
+
+EPSILON = 1E-12
 
 
 class PointModel2dEnv(Env):
-
     class ActionSpace(Space):
         def __init__(self, muscle_labels):
             self.dof_action = len(muscle_labels)
             self.shape = (self.dof_action,)
-            self.muscle_labels =muscle_labels
+            self.muscle_labels = muscle_labels
 
         def sample(self, seed=None):
             if seed is not None:
@@ -80,10 +73,10 @@ class PointModel2dEnv(Env):
         self.verbose = verbose
         self.success_thres = success_thres
         self.ref_pos = None
-        # self.follower_pos = None
 
         self.action_space = type(self).ActionSpace(muscle_labels)
-        self.observation_space = type(self).ObservationSpace(dof_observation)  # np.random.rand(dof_observation)
+        self.observation_space = type(self).ObservationSpace(
+            dof_observation)  # np.random.rand(dof_observation)
         self.log_to_file = log_to_file
         self.log_file_name = log_file
         if log_to_file:
@@ -97,12 +90,8 @@ class PointModel2dEnv(Env):
 
     @staticmethod
     def create_log_file(log_file):
-        log_counter = 0
         log_folder = c.env_log_directory
         path = log_folder / (log_file + begin_time)
-        # while Path.exists(path):
-        #     log_counter += 1
-        #     path = Path.cwd() / '..' / 'logs' / (log_file + str(log_counter))
         return open(str(path), "w"), str(path)
 
     def log(self, obj, verbose=2, same_line=False):
@@ -111,15 +100,20 @@ class PointModel2dEnv(Env):
             self.logfile.write("\n")
 
         if same_line:
-            print(obj, sep=' ', end='\r', flush=True) if verbose <= self.verbose else lambda: None
-            print(obj, sep=' ', end=' ', flush=True) if verbose <= self.verbose else lambda: None
+            print(obj, sep=' ', end='\r',
+                  flush=True) if verbose <= self.verbose else lambda: None
+            print(obj, sep=' ', end=' ',
+                  flush=True) if verbose <= self.verbose else lambda: None
         else:
             print(obj) if verbose <= self.verbose else lambda: None
 
-    def send(self, obj=dict(), message_type=''):
+    def send(self, obj=None, message_type=''):
+        if not obj:
+            obj = dict()
         try:
             obj.update({'type': message_type})
-            json_obj = json.dumps(eval(str(obj)), ensure_ascii=False).encode('utf-8')
+            json_obj = json.dumps(eval(str(obj)), ensure_ascii=False).encode(
+                'utf-8')
             objlen = json_obj.__len__()
             self.sock.send(objlen.to_bytes(4, byteorder='big'))
             bytes_sent = self.sock.send(json_obj)
@@ -136,19 +130,16 @@ class PointModel2dEnv(Env):
         try:
             self.sock.settimeout(wait_time)
             rec_int_bytes = []
-            # rec_int_bytes = self.sock.recv(4) #.decode("utf-8")
-            # rec_int = struct.unpack("!i", rec_int_bytes)[0]
             while len(rec_int_bytes) < 4:
                 rec_int_bytes.extend(self.sock.recv(4 - len(rec_int_bytes)))
                 if rec_int_bytes[0] == 10:
                     rec_int_bytes = rec_int_bytes[1:]
-            # print('rec_int_bytes: ', bytearray(rec_int_bytes))
             rec_int = int(bytearray(rec_int_bytes).decode('utf-8'))
             if rec_int_bytes[:1] == b'\n':
                 rec_int += 1
             rec_bytes = []
             while len(rec_bytes) < rec_int:
-                rec_bytes.extend(self.sock.recv(rec_int-len(rec_bytes)))
+                rec_bytes.extend(self.sock.recv(rec_int - len(rec_bytes)))
             rec = bytearray(rec_bytes).decode("utf-8")
         except TimeoutException:
             self.log("Error: Socket timeout in receive", verbose=1)
@@ -164,7 +155,6 @@ class PointModel2dEnv(Env):
             raise
         finally:
             self.sock.settimeout(0)
-        # rec_int = int(rec_int_bytes)  #int.from_bytes(rec_int_bytes, byteorder='big')
         self.log('obj rec: ' + str(rec))
         try:
             data_dict_result = json.loads(rec.strip())
@@ -186,7 +176,8 @@ class PointModel2dEnv(Env):
         self.log('Conneted to server at: {}'.format(server_address), verbose=1)
 
         import re
-        send_name = re.sub('[./:*?]', '', str(self.log_file_name).strip('0123456789'))
+        send_name = re.sub('[./:*?]', '',
+                           str(self.log_file_name).strip('0123456789'))
         self.set_name(send_name)
 
     def set_name(self, name):
@@ -202,15 +193,16 @@ class PointModel2dEnv(Env):
                 else:
                     raise Exception
             except:
-                self.log('Error in get_state receive data. Reconnecting...', verbose=1)
-                # self.connect()
+                self.log('Error in get_state receive data. Reconnecting...',
+                         verbose=1)
                 self.send(message_type='getState')
                 rec_dict = self.receive(2)
         try:
             state = self.parse_state(rec_dict)
             return state
         except:
-            self.log('Error in parsing get_state: ' + str(sys.exc_info()), verbose=1)
+            self.log('Error in parsing get_state: ' + str(sys.exc_info()),
+                     verbose=1)
             raise
 
     def set_state(self, state):
@@ -222,8 +214,10 @@ class PointModel2dEnv(Env):
 
     @staticmethod
     def parse_state(state_dict: dict):
-        state = {'ref_pos': np.array([float(s) for s in state_dict['ref_pos'].split(" ")]),
-                 'follow_pos': np.array([float(s) for s in state_dict['follow_pos'].split(" ")])}
+        state = {'ref_pos': np.array(
+            [float(s) for s in state_dict['ref_pos'].split(" ")]),
+            'follow_pos': np.array(
+                [float(s) for s in state_dict['follow_pos'].split(" ")])}
         return state
 
     def state_json_to_array(self, state_dict: dict):
@@ -235,7 +229,6 @@ class PointModel2dEnv(Env):
     def reset(self):
         self.send(message_type='reset')
         self.ref_pos = None
-        # self.follower_pos = None
         self.prev_distance = None
         self.log('Reset', verbose=0)
         state = self.get_state()
@@ -264,16 +257,13 @@ class PointModel2dEnv(Env):
             if exp:
                 return constant * np.exp(-distance) - 50, False
             else:
-                return constant/(distance + EPSILON), False
+                return constant / (distance + EPSILON), False
 
     @staticmethod
     def calculate_distance(a, b):
         return np.sqrt(np.sum((b - a) ** 2))
 
     def step(self, action):
-        if self.agent.step % 2000 == 0:
-            save_weights(self.agent, self.log_file_name, False)
-
         action = self.augment_action(action)
         self.send(action, 'excitations')
         time.sleep(0.3)
@@ -284,59 +274,58 @@ class PointModel2dEnv(Env):
 
             distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             if self.prev_distance is not None:
-                # reward = PointModel2dEnv.calcualte_reward_move(new_ref_pos, self.follower_pos, new_follower_pos)
-                # reward, done = self.calcualte_reward_time_n5(distance, self.prev_distance)  # r2
-                # reward, done = self.calcualte_reward_time_dist(distance, self.prev_distance)  # r3
-                reward, done = self.calcualte_reward_time_5(distance,self.prev_distance)  # r4
-                # reward, done = self.calcualte_reward_time_dist_nn5(distance, self.prev_distance)  # r5
+                reward, done = self.calcualte_reward_time_5(distance,
+                                                            self.prev_distance)  # r4
             else:
                 reward, done = (0, False)
-            # self.set_state(new_ref_pos, new_follower_pos)
             self.prev_distance = distance
             if done:
                 self.log('Achieved done state', verbose=0)
-            self.log('****Reward: ' + str(reward), verbose=1, same_line=True)
+            self.log('Reward: ' + str(reward), verbose=1, same_line=True)
 
             state_arr = self.state_json_to_array(state)
             info = {'distance': distance}
 
         return state_arr, reward, done, info
 
-    def calcualte_reward_move(self, ref_pos, prev_follow_pos, new_follow_pos):  # r1
+    def calcualte_reward_move(self, ref_pos, prev_follow_pos,
+                              new_follow_pos):  # r1
         prev_dist = type(self).calculate_distance(ref_pos, prev_follow_pos)
 
         new_dist = type(self).calculate_distance(ref_pos, new_follow_pos)
         if new_dist < self.success_thres:
-            # achieved done state
+            # Achieved done state
             return 1, True
         else:
             if prev_dist - new_dist > 0:
-                return np.sign(prev_dist - new_dist) * self.calculate_reward_pos(ref_pos,
-                                                                                 new_follow_pos,
-                                                                                 False,
-                                                                                 10), False
+                return np.sign(
+                    prev_dist - new_dist) * self.calculate_reward_pos(
+                    ref_pos,
+                    new_follow_pos,
+                    False,
+                    10), False
             else:
-                return np.sign(prev_dist - new_dist) * self.calculate_reward_pos(ref_pos,
-                                                                                 new_follow_pos,
-                                                                                 False,
-                                                                                 10), False
+                return np.sign(
+                    prev_dist - new_dist) * self.calculate_reward_pos(
+                    ref_pos,
+                    new_follow_pos,
+                    False,
+                    10), False
 
     def calcualte_reward_time_n5(self, new_dist, prev_dist):  # r2
-        # prev_dist = type(self).calculate_distance(ref_pos, prev_follow_pos)
-        # new_dist = type(self).calculate_distance(ref_pos, new_follow_pos)
         if new_dist < self.success_thres:
             # achieved done state
-            return 5/self.agent.episode_step, True
+            return 5 / self.agent.episode_step, True
         else:
             if prev_dist - new_dist > 0:
-                return 1/self.agent.episode_step, False
+                return 1 / self.agent.episode_step, False
             else:
                 return -1, False
 
     def calcualte_reward_time_dist_n5(self, new_dist, prev_dist):  # r3
         if new_dist < self.success_thres:
             # achieved done state
-            return 5/self.agent.episode_step, True
+            return 5 / self.agent.episode_step, True
         else:
             if prev_dist - new_dist > 0:
                 return 1 / (self.agent.episode_step * new_dist), False
@@ -349,14 +338,14 @@ class PointModel2dEnv(Env):
             return 5, True
         else:
             if prev_dist - new_dist > 0:
-                return 1/self.agent.episode_step, False
+                return 1 / self.agent.episode_step, False
             else:
                 return -1, False
 
     def calcualte_reward_time_dist_nn5(self, new_dist, prev_dist):  # r5
         if new_dist < self.success_thres:
             # achieved done state
-            return 5/(self.agent.episode_step * new_dist), True
+            return 5 / (self.agent.episode_step * new_dist), True
         else:
             if prev_dist - new_dist > 0:
                 return 1 / (self.agent.episode_step * new_dist), False

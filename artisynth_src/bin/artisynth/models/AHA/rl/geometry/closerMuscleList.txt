@@ -1,6 +1,0 @@
-at
-mt
-pt
-sm
-dm
-mp
