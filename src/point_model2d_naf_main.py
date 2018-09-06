@@ -140,7 +140,6 @@ def main(train_test_flag='train'):
         env.seed(123)
         nb_actions = env.action_space.shape[0]
         memory = SequentialMemory(limit=50000, window_length=1)
-        episode_memory = SequentialMemory(limit=5000, window_length=1)
 
         mu_model = get_mu_model(env)
         v_model = get_v_model(env)
@@ -160,7 +159,6 @@ def main(train_test_flag='train'):
         agent = MuscleNAFAgent(nb_actions=nb_actions, V_model=v_model,
                                L_model=l_model, mu_model=mu_model,
                                memory=memory,
-                               episode_memory=episode_memory,
                                nb_steps_warmup=200,
                                random_process=random_process,
                                gamma=GAMMA,
