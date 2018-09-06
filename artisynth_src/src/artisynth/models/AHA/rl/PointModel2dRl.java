@@ -56,7 +56,8 @@ public class PointModel2dRl extends RootModel
 	public enum DemoType {
 		Point1d,
 		Point2d,
-		Point3d
+		Point3d,
+		NonSym,
 	}
 
 	public boolean useReactionForceTargetP = false;
@@ -145,6 +146,13 @@ public class PointModel2dRl extends RootModel
 			add3dMuscles();
 			break;
 		}
+		case NonSym:
+		{
+			addCenter();
+			addCenterRef();
+			add2dLabeledMusclesNonSym(muscleLabels);
+			break;
+		}	
 		default: {
 			System.err.println("PointModel, unknown demo type: "
 					+ myDemoType.toString());
@@ -169,7 +177,7 @@ public class PointModel2dRl extends RootModel
 		rp.setLineRadius(0.1604);
 		mech.setRenderProps(rp);
 
-		RenderProps.setPointColor(center, Color.WHITE);
+		RenderProps.setPointColor(center, Color.BLUE);
 		RenderProps.setPointRadius(center, len/25);
 	}
 
@@ -195,12 +203,21 @@ public class PointModel2dRl extends RootModel
 		RigidBody body = new RigidBody ("body_follower");
 		body.setInertia (SpatialInertia.createSphereInertia (mass, len/25));
 		mech.addRigidBody (body);
-		RenderProps.setVisible (body, false);
+		RenderProps.setVisible (body, true);
 
 		center = new FrameMarker();
 		center.setName("center");
 		center.setPointDamping(pointDamping);
-		mech.addFrameMarker (center, body, Point3d.ZERO);      
+		
+		RenderProps props = new RenderProps();
+		props.setPointColor(Color.BLUE);
+		props.setFaceColor(Color.BLUE);
+		props.setEdgeColor(Color.BLUE);
+		
+		center.setRenderProps(props);
+		
+		mech.addFrameMarker (center, body, Point3d.ZERO);     
+		
 	}
 
 	public void addCenterRef()
@@ -210,12 +227,18 @@ public class PointModel2dRl extends RootModel
 		body.setMass (0);
 		mech.addRigidBody (body);
 		RenderProps.setVisible (body, true);
+		
 		//      body.setPosition (new Point3d (5,5,5));
 
 		center_ref = new FrameMarker();
 		center_ref.setName("center_ref");
 		center_ref.setPointDamping(pointDamping);
-		mech.addFrameMarker (center_ref, body, Point3d.ZERO);      
+		
+		RenderProps props = new RenderProps();
+		props.setPointColor(Color.GREEN);
+		center_ref.setRenderProps(props);
+		
+		mech.addFrameMarker (center_ref, body, Point3d.ZERO);      		
 		//      center_ref.setPosition (5,5,5);
 	}
 
@@ -239,7 +262,7 @@ public class PointModel2dRl extends RootModel
 		
 		Vector3d targetVec = new Vector3d(x,y,z);
 		
-		if (myDemoType == DemoType.Point2d)
+		if (myDemoType == DemoType.Point2d || myDemoType == DemoType.NonSym)
 			targetVec.y = 0; 	 
 		if (myDemoType == DemoType.Point1d)
 			targetVec.z = 0; 	 
@@ -401,7 +424,25 @@ double prev_time_step = 0;
 		System.out.println (obj);
 	}
 
+	
+	public void add2dLabeledMusclesNonSym(String[] labels) {
 
+		//if (applyDisturbance) {
+		//} else {
+		//}
+
+		addMusclesNonSym(new RigidTransform3d(), labels.length, 0.0);
+		int i = 0;
+		for (AxialSpring s : mech.axialSprings()) {
+			if (s instanceof Muscle) {
+				s.setName(labels[i]);
+				//          ((Muscle) s).setMaxForce(muscleFmult * muscleFs[i]);
+				//          RenderProps.setLineRadius(s, 0.1 * muscleFs[i]);
+				i += 1;
+			}
+		}
+	}
+	
 	public void add2dLabeledMuscles(String[] labels) {
 
 		//if (applyDisturbance) {
@@ -495,6 +536,38 @@ double prev_time_step = 0;
 		addMuscles(new RigidTransform3d(), 2, 0.0);
 	}
 
+	public void addMusclesNonSym(RigidTransform3d X, int num, double offset)
+	{
+
+//		double[] disturb = new double[num];
+//		for (int i = 0; i<num; ++i)
+//		{
+//			double sign = 1;
+//			if (i%2==0) sign = -1;
+//			disturb[i] = 0.5 + (i%6+1) * (sign)*((double)i)/4;
+//		}
+		
+		double[] disturb = {1.5, -0.5, 2.5, -0.5, -0.4,
+				-0.5, 0.5, 0.5, 2.5, -0.2, 0.5};
+		
+		for (int i = 0; i < num; i++)
+		{
+			double degree = 2*Math.PI*((double)i/num) + disturb[i];
+
+			Point3d pnt = new Point3d(
+					(len+disturb[i])*Math.sin(degree),
+					0.0,
+					(len+disturb[i])*Math.cos(degree));
+			pnt.transform(X.R);
+			Particle fixed = new Particle(mass, pnt);
+			fixed.setDynamic(false);
+			mech.addParticle(fixed);
+			//         System.out.println (pnt);
+
+			addMuscle(fixed);
+		}
+	}
+	
 	public void addMuscles(RigidTransform3d X, int num, double offset)
 	{
 

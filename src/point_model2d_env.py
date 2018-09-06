@@ -36,7 +36,7 @@ class PointModel2dEnv(Env):
         def __init__(self, muscle_labels):
             self.dof_action = len(muscle_labels)
             self.shape = (self.dof_action,)
-            self.muscle_labels = muscle_labels
+            self.muscle_labels =muscle_labels
 
         def sample(self, seed=None):
             if seed is not None:
@@ -271,12 +271,12 @@ class PointModel2dEnv(Env):
         return np.sqrt(np.sum((b - a) ** 2))
 
     def step(self, action):
-        if self.agent.step % 500 == 0:
+        if self.agent.step % 2000 == 0:
             save_weights(self.agent, self.log_file_name, False)
 
         action = self.augment_action(action)
         self.send(action, 'excitations')
-        time.sleep(0.1)
+        time.sleep(0.3)
         state = self.get_state()
         if state is not None:
             new_ref_pos = state['ref_pos']

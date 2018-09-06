@@ -24,6 +24,9 @@ public class PointModelGenericRl extends PointModel2dRl
 				case 3:
 					myDemoType = DemoType.Point3d;
 					break;				
+				case 4:
+					myDemoType = DemoType.NonSym;
+					break;				
 				}
 				args[i] = "";
 				args[i+1] = "";

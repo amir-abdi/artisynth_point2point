@@ -1,7 +1,7 @@
-from keras import backend as K
-import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
-from src.import_file import *
+from keras import backend as K
+from pathlib import Path
+import tensorflow as tf
 from datetime import datetime
 
 
@@ -28,13 +28,11 @@ def save_weights(agent, weight_filename, ask=True):
         print('results saved to ', weight_filename)
 
 
-
 def mylogistic(x):
     return 1 / (1 + K.exp(-0.1 * x))
 
 
 begin_time = str(datetime.now().strftime('%y-%m-%d_%H-%M'))
-
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 config.gpu_options.visible_device_list = "0"

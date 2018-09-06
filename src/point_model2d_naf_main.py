@@ -1,61 +1,76 @@
 import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
-from src.import_file import *
+from rl.agents.dqn import NAFAgent
+from src.point_model2d_env import *
+from rl.random import OrnsteinUhlenbeckProcess
+from keras.utils.generic_utils import get_custom_objects
+from keras.layers import Dense, Activation, Flatten
+from keras.optimizers import Adam
+import pprint
 from src.utilities import *
 import src.config as c
 from rl.callbacks import RlTensorBoard
 
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-def mylogistic(x):
+# Port number
+PORT = 7024
+
+# Constants of the environment
+NUM_MUSCLES = 6
+SUCCESS_THRESHOLD = 0.5
+DOF_OBSERVATIONS = 3
+
+# Noise parameters
+THETA = .35
+MU = 0.
+SIGMA = .35
+DT = 1e-1
+SIGMA_MIN = 0.05
+NUM_STEPS_ANNEALING = 300000
+
+# Training hyper-parameteres
+GAMMA = 0.99
+LR = 1e-2
+
+
+def smooth_logistic(x):
     return 1 / (1 + K.exp(-0.1 * x))
 
 
-get_custom_objects().update({'mylogistic': Activation(mylogistic)})
+def get_v_model(env):
+    v_model = Sequential()
+    v_model.add(Flatten(input_shape=(1,) + env.observation_space.shape,
+                        name='FirstFlatten'))
+    v_model.add(Dense(32))
+    v_model.add(Activation('relu'))
+    v_model.add(Dense(32))
+    v_model.add(Activation('relu'))
+    v_model.add(Dense(1))
+    v_model.add(Activation('relu', name='V_final'))
+    print(v_model.summary())
+    return v_model
 
 
-muscle_labels = ["n", "nne", "ne", "ene",
-                 "e", "ese", "se", "sse",
-                 "s", "ssw", "sw", "wsw",
-                 "w", "wnw", "nw", "nnw"]
-
-def my_V_model(env):
-    # Next, we build a very simple model.
-    V_model = Sequential()
-    V_model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
-    V_model.add(Dense(32))
-    V_model.add(Activation('relu'))
-    V_model.add(Dense(32))
-    V_model.add(Activation('relu'))
-    V_model.add(Dense(1))
-    V_model.add(Activation('relu', name='V_final'))
-    #V_model.add(Dense(env.action_space.shape[0]))
-    #V_model.add(Activation('relu'))
-    print(V_model.summary())
-    return V_model
-
-
-def my_mu_model(env):
+def get_mu_model(env):
     mu_model = Sequential()
-    mu_model.add(Flatten(input_shape=(1,) + env.observation_space.shape, name='FirstFlatten'))
+    mu_model.add(Flatten(input_shape=(1,) + env.observation_space.shape,
+                         name='FirstFlatten'))
     mu_model.add(Dense(32))
     mu_model.add(Activation('relu'))
     mu_model.add(Dense(32))
     mu_model.add(Activation('relu'))
-    # mu_model.add(Dense(128))
-    # mu_model.add(Activation('relu'))
     mu_model.add(Dense(env.action_space.shape[0]))
-    # mu_model.add(Activation('relu'))
-    mu_model.add(Activation('mylogistic', name='mu_final'))
+    mu_model.add(Activation('SmoothLogistic', name='mu_final'))
     print(mu_model.summary())
     return mu_model
 
 
-def my_L_model(env):
+def get_l_model(env):
     nb_actions = env.action_space.shape[0]
     action_input = Input(shape=(nb_actions,), name='action_input')
-    observation_input = Input(shape=(1,) + env.observation_space.shape, name='observation_input')
+    observation_input = Input(shape=(1,) + env.observation_space.shape,
+                              name='observation_input')
     x = Concatenate()([action_input, Flatten()(observation_input)])
     x = Dense(32)(x)
     x = Activation('relu')(x)
@@ -65,12 +80,12 @@ def my_L_model(env):
     x = Activation('relu')(x)
     x = Dense(((nb_actions * nb_actions + nb_actions) // 2))(x)
     x = Activation('linear', name='L_final')(x)
-    L_model = Model(inputs=[action_input, observation_input], outputs=x)
-    print(L_model.summary())
-    return L_model
+    l_model = Model(inputs=[action_input, observation_input], outputs=x)
+    print(l_model.summary())
+    return l_model
 
 
-class MyNAFAgent(NAFAgent):
+class MuscleNAFAgent(NAFAgent):
     def select_action(self, state):
         batch = self.process_state_batch([state])
         action = self.mu_model.predict_on_batch(batch).flatten()
@@ -81,49 +96,38 @@ class MyNAFAgent(NAFAgent):
             noise = self.random_process.sample()
             assert noise.shape == action.shape
             action += noise
-            # the below is necessary even if using logistic or sigmoid activations (because of noise)
-            action = np.clip(action, 0, 1)  # to avoid using negative and above 1 values for excitations
-
+            # This is necessary even if using logistic or sigmoid activations
+            # because of the added noise to avoid negative and above 1 values
+            # for excitations.
+            action = np.clip(action, 0,
+                             1)
         return action
 
 
-def main(train_test='train'):
-
-    num_muslces = 14
-    port = 7014
-
-    success_thres = 0.5
-    dof_observation = 3
-
-    theta = .35
-    mu = 0.
-    sigma = .35
-    dt = 1e-1
-    sigma_min = 0.05
-    n_steps_annealing = 100000
-
-    gamma = 0.99
-    lr = 1e-2
-
-    # model_name = 'mylogist0.1_2,2,3x32Net_r4_[1e-2]_th0.2_[t.35s.35]_nAnn[0.05,1e5]_{}muscles'.format(num_muslces)
-    # model_name = 'sig_2,2,3x32Net_r4_[1e-2]_th0.5_[t.35s.35]_nAnn[0.05,4e5]_{}muscles'.format(num_muslces)
-    # model_name = 'sig_2,2,3x32Net_r4_[1e-2]_th0.5_[t.35s.35]_nAnn[0.05,4e5]_6muscles_noNoiseR5'
-
-    model_name = 'mylogistic_2,2,3x32Net_r4_lr{}_th{}_[t{}s{}]_nAnn[{},{}]_{}muscles3D'.\
-        format(lr, success_thres, theta, sigma, sigma_min, n_steps_annealing, num_muslces)
-
-    muscle_labels = ["m"+str(i) for i in np.array(range(num_muslces))]
-    get_custom_objects().update({'mylogistic': Activation(mylogistic)})
+def main(train_test_flag='train'):
+    get_custom_objects().update(
+        {'SmoothLogistic': Activation(smooth_logistic)})
+    model_name = '2,2,3x32Net_r4_lr{}_th{}_[t{}s{}]_nAnn[{},{}]_{}'. \
+        format(LR,
+               SUCCESS_THRESHOLD,
+               THETA,
+               SIGMA,
+               SIGMA_MIN,
+               NUM_STEPS_ANNEALING,
+               NUM_MUSCLES)
+    muscle_labels = ["m" + str(i) for i in np.array(range(NUM_MUSCLES))]
 
     training = False
-    weight_filename = str(c.trained_directory / 'NAF_PointModel2D_{}_weights.h5f'.format(model_name))
+    weight_filename = str(
+        c.trained_directory / '{}_weights.h5f'.format(
+            model_name))
     log_file_name = begin_time + '_' + model_name
 
     while True:
         try:
-            env = PointModel2dEnv(verbose=2, success_thres=success_thres,
-                                  dof_observation=dof_observation,
-                                  include_follow=False, port=port,
+            env = PointModel2dEnv(verbose=0, success_thres=SUCCESS_THRESHOLD,
+                                  dof_observation=DOF_OBSERVATIONS,
+                                  include_follow=False, port=PORT,
                                   muscle_labels=muscle_labels,
                                   log_file=log_file_name)
             env.connect()
@@ -138,32 +142,33 @@ def main(train_test='train'):
         memory = SequentialMemory(limit=50000, window_length=1)
         episode_memory = SequentialMemory(limit=5000, window_length=1)
 
-        mu_model = my_mu_model(env)
-        V_model = my_V_model(env)
-        L_model = my_L_model(env)
+        mu_model = get_mu_model(env)
+        v_model = get_v_model(env)
+        l_model = get_l_model(env)
 
-        random_process = OrnsteinUhlenbeckProcess(size=nb_actions,
-                                                  theta=theta,
-                                                  mu=mu,
-                                                  sigma=sigma,
-                                                  dt=dt,
-                                                  sigma_min=sigma_min,
-                                                  n_steps_annealing=n_steps_annealing
-                                                  )
+        random_process = OrnsteinUhlenbeckProcess(
+            size=nb_actions,
+            theta=THETA,
+            mu=MU,
+            sigma=SIGMA,
+            dt=DT,
+            sigma_min=SIGMA_MIN,
+            n_steps_annealing=NUM_STEPS_ANNEALING
+        )
         # random_process = None
         processor = PointModel2dProcessor()
-        agent = NAFAgent(nb_actions=nb_actions, V_model=V_model, L_model=L_model, mu_model=mu_model,
-                         memory=memory,
-                         episode_memory=episode_memory,
-                         nb_steps_warmup=200,
-                         random_process=random_process,
-                         gamma=gamma,  # discount
-                         target_model_update=200,  # 1e-2,
-                         processor=processor,
-                         target_episode_update=True)
+        agent = MuscleNAFAgent(nb_actions=nb_actions, V_model=v_model,
+                               L_model=l_model, mu_model=mu_model,
+                               memory=memory,
+                               episode_memory=episode_memory,
+                               nb_steps_warmup=200,
+                               random_process=random_process,
+                               gamma=GAMMA,
+                               target_model_update=200,
+                               processor=processor,
+                               target_episode_update=True)
 
-        agent.compile(Adam(lr=lr,  # decay=0.999997
-                           ), metrics=['mse'])
+        agent.compile(Adam(lr=LR, ), metrics=['mse'])
         env.agent = agent
         pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)
@@ -174,10 +179,11 @@ def main(train_test='train'):
             write_grads=True, write_images=False, embeddings_freq=0,
             embeddings_layer_names=None, embeddings_metadata=None,
             agent=agent)
-        csv_logger = keras.callbacks.CSVLogger(str(c.agent_log_directory / log_file_name),
-                                               append=False, separator=',')
+        csv_logger = keras.callbacks.CSVLogger(
+            str(c.agent_log_directory / log_file_name),
+            append=False, separator=',')
 
-        if train_test == 'train':
+        if train_test_flag == 'train':
             # train code
             training = True
             agent.fit(env,
@@ -188,13 +194,15 @@ def main(train_test='train'):
                       callbacks=[tensorboard, csv_logger])
             print('Training complete')
             save_weights(agent, weight_filename)
-        elif train_test == 'test':
+        elif train_test_flag == 'test':
             # test code
             training = False
             env.log_to_file = False
-            history = agent.test(env, nb_episodes=100, nb_max_episode_steps=10)
+            history = agent.test(env, nb_episodes=500,
+                                 nb_max_episode_steps=5000)
             print(history.history)
-            print('Average last distance: ', np.mean(history.history['last_distance']))
+            print('Average last distance: ',
+                  np.mean(history.history['last_distance']))
             print('Mean Reward: ', np.mean(history.history['episode_reward']))
 
     except Exception as e:
@@ -207,6 +215,3 @@ def main(train_test='train'):
 
 if __name__ == "__main__":
     main('train')
-
-
-
