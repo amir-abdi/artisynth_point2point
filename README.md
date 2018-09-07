@@ -54,7 +54,7 @@ switch to Classpath tab, and add the artisynth_rl project to the Classpath.
 
 ## Running
 
-###Step 1
+### Step 1
 Run ArtiSynth with the following arguments:
 
 
@@ -78,16 +78,16 @@ the muscles are arranged.
 reinforcement learning cause.
 
   
-###Step 2 - Training
+### Step 2 - Training
 Run `src/point_model2d_naf_main.py` with the same environment parameters 
 such as `NUM_MUSCLES`, `PORT`, and `DOF_OBSERVATIONS`. 
 
-##Step 3 - Testing
+## Step 3 - Testing
 Once the model was successfully trained (the agent was constantly reaching
 the success state), call the `main` function in  `src/point_model2d_naf_main.py`
 with `'test'` as input instead of `'train'` and see the results. 
 
-##Results
+## Results
 
 Once the training is complete, the model (agent) will be able to move the 
 particle by finding the correct muscle activations to reach its destination.
