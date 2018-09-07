@@ -13,6 +13,10 @@ from rl.callbacks import RlTensorBoard
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
+# logging parameters
+VERBOSITY = 2
+HISTOGRAM_FREQ = 1
+
 # Port number
 PORT = 7024
 
@@ -29,10 +33,18 @@ DT = 1e-1
 SIGMA_MIN = 0.05
 NUM_STEPS_ANNEALING = 300000
 
-# Training hyper-parameteres
+# Training hyper-parameters
 GAMMA = 0.99
 LR = 1e-2
+NUM_MAX_EPISODE_STEPS = 200
+NUM_TRAINING_STEPS = 5000000
+BATCH_SIZE = 32
+UPDATE_TARGET_MODEL_STEPS = 200
+WARMUP_STEPS = 200
+MEMORY_SIZE = 50000
 
+# Testing parameters
+NUM_EPISODES = 500
 
 def smooth_logistic(x):
     return 1 / (1 + K.exp(-0.1 * x))
@@ -99,8 +111,7 @@ class MuscleNAFAgent(NAFAgent):
             # This is necessary even if using logistic or sigmoid activations
             # because of the added noise to avoid negative and above 1 values
             # for excitations.
-            action = np.clip(action, 0,
-                             1)
+            action = np.clip(action, 0, 1)
         return action
 
 
@@ -139,7 +150,7 @@ def main(train_test_flag='train'):
     try:
         env.seed(123)
         nb_actions = env.action_space.shape[0]
-        memory = SequentialMemory(limit=50000, window_length=1)
+        memory = SequentialMemory(limit=MEMORY_SIZE, window_length=1)
 
         mu_model = get_mu_model(env)
         v_model = get_v_model(env)
@@ -159,21 +170,23 @@ def main(train_test_flag='train'):
         agent = MuscleNAFAgent(nb_actions=nb_actions, V_model=v_model,
                                L_model=l_model, mu_model=mu_model,
                                memory=memory,
-                               nb_steps_warmup=200,
+                               nb_steps_warmup=WARMUP_STEPS,
                                random_process=random_process,
                                gamma=GAMMA,
-                               target_model_update=200,
+                               target_model_update=UPDATE_TARGET_MODEL_STEPS,
                                processor=processor,
                                target_episode_update=True)
 
-        agent.compile(Adam(lr=LR, ), metrics=['mse'])
+        agent.compile(Adam(lr=LR), metrics=['mse'])
         env.agent = agent
         pprint.pprint(agent.get_config(False))
         load_weights(agent, weight_filename)
 
         tensorboard = RlTensorBoard(
             log_dir=str(c.tensorboard_log_directory / log_file_name),
-            histogram_freq=1, batch_size=32, write_graph=True,
+            histogram_freq=HISTOGRAM_FREQ,
+            batch_size=BATCH_SIZE,
+            write_graph=True,
             write_grads=True, write_images=False, embeddings_freq=0,
             embeddings_layer_names=None, embeddings_metadata=None,
             agent=agent)
@@ -185,10 +198,10 @@ def main(train_test_flag='train'):
             # train code
             training = True
             agent.fit(env,
-                      nb_steps=5000000,
+                      nb_steps=NUM_TRAINING_STEPS,
                       visualize=False,
-                      verbose=2,
-                      nb_max_episode_steps=200,
+                      verbose=VERBOSITY,
+                      nb_max_episode_steps=NUM_MAX_EPISODE_STEPS,
                       callbacks=[tensorboard, csv_logger])
             print('Training complete')
             save_weights(agent, weight_filename)
@@ -196,8 +209,8 @@ def main(train_test_flag='train'):
             # test code
             training = False
             env.log_to_file = False
-            history = agent.test(env, nb_episodes=500,
-                                 nb_max_episode_steps=5000)
+            history = agent.test(env, nb_episodes=NUM_EPISODES,
+                                 nb_max_episode_steps=NUM_MAX_EPISODE_STEPS)
             print(history.history)
             print('Average last distance: ',
                   np.mean(history.history['last_distance']))
