@@ -45,8 +45,9 @@ JSON objects. To enable json support in java, include the java-json.jar
 - Checkout [keras-rl](https://github.com/amir-abdi/keras-rl)
 - Checkout [artisynth_rl](https://github.com/amir-abdi/artisynth_rl)
 - Include keras-rl directory as python path for your project. You can do this
-either by adding the library root to the PATH environment variable, or add
-the library as an external dependency in your IDE of choice.
+either by adding the keras-rl library root to the PYTHONPATH environment 
+variable, or add
+the library as an external dependency in your IDE.
 - Add `artisynth_rl/artisynth_src` to Classpath of the artisynth project. 
 If you are using eclipse, import the artisynth_rl into eclipse, 
 open the **Run Configurations** for the artisynth_core project, 
@@ -81,6 +82,19 @@ reinforcement learning cause.
 ### Step 2 - Training
 Run `src/point_model2d_naf_main.py` with the same environment parameters 
 such as `NUM_MUSCLES`, `PORT`, and `DOF_OBSERVATIONS`. 
+
+Training results and logs are stored in 4 directories, namely
+
+- trained: stores the trained model
+- log_agent: stores the agent-related logs with timestamp
+- log_env: stores the environment logs with timestamp
+- log_tb: stores the tensorboard logs which can be visualized during training 
+by tensorboard and setting the `--logdir=logs_tb/TB_LOGGING_DIR`.
+
+The above 4 directories are created in the parent directory of where 
+`point_model2d_naf_main.py` is executed. In the `src/config.py` it is 
+assumed that the main file is executed from inside the `src` folder and
+the 4 directories are made in the artisynth_rl root.   
 
 ## Step 3 - Testing
 Once the model was successfully trained (the agent was constantly reaching
