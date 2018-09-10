@@ -96,7 +96,7 @@ The above 4 directories are created in the parent directory of where
 assumed that the main file is executed from inside the `src` folder and
 the 4 directories are made in the artisynth_rl root.   
 
-## Step 3 - Testing
+### Step 3 - Testing
 Once the model was successfully trained (the agent was constantly reaching
 the success state), call the `main` function in  `src/point_model2d_naf_main.py`
 with `'test'` as input instead of `'train'` and see the results. 
