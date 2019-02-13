@@ -685,9 +685,4 @@ double prev_time_step = 0;
 		}
 	}
 
-
-	public SparseBlockMatrix getK() {
-		return mech.getActiveStiffness();
-	}
-
 }
