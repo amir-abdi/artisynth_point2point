@@ -1,14 +1,27 @@
 import os
+import pprint
+
 from rl.agents.dqn import NAFAgent
-from src.point_model2d_env import *
 from rl.random import OrnsteinUhlenbeckProcess
+from rl.callbacks import RlTensorBoard
+from rl.memory import SequentialMemory
+from rl.policy import BoltzmannQPolicy
+
+import keras
 from keras.utils.generic_utils import get_custom_objects
 from keras.layers import Dense, Activation, Flatten
 from keras.optimizers import Adam
-import pprint
-from src.utilities import *
-import src.config as c
-from rl.callbacks import RlTensorBoard
+from keras.layers import Dense, Activation, Flatten
+from keras.optimizers import Adam
+from keras.models import Sequential
+from keras.models import Sequential, Model
+from keras.layers import Dense, Activation, Flatten, Input, Concatenate
+from keras.optimizers import Adam
+from keras import backend as K
+
+from point_model2d_env import *
+from utilities import *
+import config as c
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -18,7 +31,7 @@ VERBOSITY = 2
 HISTOGRAM_FREQ = 1
 
 # Port number
-PORT = 7024
+PORT = 6020
 
 # Constants of the environment
 NUM_MUSCLES = 6

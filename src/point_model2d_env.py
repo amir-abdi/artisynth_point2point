@@ -1,25 +1,16 @@
 import time
-from socket import timeout as TimeoutException
-import socket
 import json
+import sys
+import socket
+import numpy as np
+from socket import timeout as TimeoutException
+
 from rl.core import Env
 from rl.core import Space
 from rl.core import Processor
-import numpy as np
-from src.utilities import begin_time
-import src.config as c
-import sys
-import keras
-from keras.models import Sequential
-from keras.layers import Dense, Activation, Flatten
-from keras.optimizers import Adam
-from keras.models import Sequential, Model
-from keras.layers import Dense, Activation, Flatten, Input, Concatenate
-from keras.optimizers import Adam
-from keras import backend as K
-from rl.policy import BoltzmannQPolicy
-from rl.memory import SequentialMemory
 
+from utilities import begin_time
+import config as c
 
 EPSILON = 1E-12
 
