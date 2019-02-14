@@ -30,9 +30,6 @@ hs_err_pid*
 
 *.h5f
 venv*
-logs*
-tf-logs*
-tb_logs*
+output*
 .idea*
 src/__pycache__*
-trained*
