@@ -5,29 +5,22 @@ from rl.agents.dqn import NAFAgent
 from rl.random import OrnsteinUhlenbeckProcess
 from rl.callbacks import RlTensorBoard
 from rl.memory import SequentialMemory
-from rl.policy import BoltzmannQPolicy
 
 import keras
 from keras.utils.generic_utils import get_custom_objects
-from keras.layers import Dense, Activation, Flatten
-from keras.optimizers import Adam
-from keras.layers import Dense, Activation, Flatten
-from keras.optimizers import Adam
-from keras.models import Sequential
 from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
-from keras import backend as K
 
-from point_model2d_env import *
-from utilities import *
-import config as c
+from environments.point_model2d_env import *
+from common.utilities import *
+from common import config as c
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # logging parameters
-VERBOSITY = 2
+VERBOSITY = 4
 HISTOGRAM_FREQ = 1
 
 # Port number

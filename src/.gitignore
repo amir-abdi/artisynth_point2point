@@ -1,2 +1,4 @@
 bin/
 bin/*
+*/__pycache__
+environments/__pycache___

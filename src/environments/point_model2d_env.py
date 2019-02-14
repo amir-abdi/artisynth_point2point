@@ -9,8 +9,8 @@ from rl.core import Env
 from rl.core import Space
 from rl.core import Processor
 
-from utilities import begin_time
-import config as c
+from common.utilities import begin_time
+from common import config as c
 
 EPSILON = 1E-12
 
