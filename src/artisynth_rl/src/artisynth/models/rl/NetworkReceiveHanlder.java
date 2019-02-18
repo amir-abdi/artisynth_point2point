@@ -15,7 +15,7 @@ public class NetworkReceiveHanlder extends Thread {
 	InputStream in;
 	Queue<JSONObject> queue;
 	public ReentrantLock lock = new ReentrantLock();
-	byte[] b = new byte[8192];
+	byte[] b = new byte[100000];
 
 	public NetworkReceiveHanlder(InputStream socket) {
 		this.in = socket;
@@ -37,7 +37,8 @@ public class NetworkReceiveHanlder extends Thread {
 						queue.add(jo);
 						Log.log("Queue size after add: " + queue.size());
 					} catch (Exception e) {
-						Log.log("Error in NetowkrReceive run: " + e.getMessage());
+						Log.log("Error in NetowkrReceive run: "
+								+ e.getMessage());
 					} finally {
 						// lock.notify();
 						lock.unlock();
@@ -46,7 +47,8 @@ public class NetworkReceiveHanlder extends Thread {
 				}
 
 			} catch (SocketException e) {
-				Log.log("SocketException in receiveJsonObject: " + e.getMessage());
+				Log.log("SocketException in receiveJsonObject: "
+						+ e.getMessage());
 				try {
 					in.close();
 					this.interrupt();
@@ -59,7 +61,8 @@ public class NetworkReceiveHanlder extends Thread {
 			} catch (IOException e) {
 				Log.log("IOException in receiveJsonObject: " + e.getMessage());
 			} catch (JSONException e) {
-				Log.log("JSONException in receiveJsonObject: " + e.getMessage());
+				Log.log("JSONException in receiveJsonObject: "
+						+ e.getMessage());
 			}
 		}
 	}
@@ -88,7 +91,8 @@ public class NetworkReceiveHanlder extends Thread {
 		return jo;
 	}
 
-	private JSONObject receiveJsonObject() throws JSONException, IOException, SocketException {
+	private JSONObject receiveJsonObject()
+			throws JSONException, IOException, SocketException {
 		if (in == null)
 			throw new SocketException("Socket is closed");
 		byte[] int_bytes = new byte[4];
@@ -99,6 +103,7 @@ public class NetworkReceiveHanlder extends Thread {
 		ByteBuffer wrapped = ByteBuffer.wrap(int_bytes);
 
 		int bytesToRead = wrapped.getInt();
+		System.out.println("bytesToRead: " + bytesToRead);
 		int numbytes = in.read(b, 0, bytesToRead);
 		if (numbytes <= 0)
 			return null;

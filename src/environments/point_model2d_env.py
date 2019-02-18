@@ -257,7 +257,7 @@ class PointModel2dEnv(Env):
     def step(self, action):
         action = self.augment_action(action)
         self.send(action, 'excitations')
-        time.sleep(0.3)
+        # time.sleep(0.3)
         state = self.get_state()
         if state is not None:
             new_ref_pos = state['ref_pos']

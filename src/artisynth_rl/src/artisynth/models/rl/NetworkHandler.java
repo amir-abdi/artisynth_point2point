@@ -1,16 +1,19 @@
 package artisynth.models.rl;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import org.apache.hadoop.io.DataOutputOutputStream;
 import org.json.JSONObject;
 
 public class NetworkHandler extends Thread {
 	private Socket socket = null;
 	NetworkReceiveHanlder networkReceiveHandler; 
-	PrintWriter out;
+//	PrintWriter out;
+	DataOutputStream out;
 	int port;
 
 	public NetworkHandler(int port) {
@@ -18,18 +21,20 @@ public class NetworkHandler extends Thread {
 	}
 
 	public NetworkHandler() {
-		this(6006);
+		this(8097);
 	}
 
 	public void run() {
 		while (true) {
+			Log.log("Running the network handlder");
 			try {
 				ServerSocket listener = new ServerSocket(port);
 				while (true) {
 					this.socket = listener.accept(); // assuming single client
 					this.networkReceiveHandler = new NetworkReceiveHanlder(socket.getInputStream());
 					this.networkReceiveHandler.start();
-					out = new PrintWriter(socket.getOutputStream(), true);
+//					out = new PrintWriter(socket.getOutputStream(), true);
+					out = new DataOutputStream(socket.getOutputStream());
 					Log.log("New connection with client at " + this.socket);
 				}
 			} catch (IOException err) {
@@ -59,8 +64,9 @@ public class NetworkHandler extends Thread {
 
 		try {
 			String objstr = object.toString();
-			out.println(objstr.length());
-			out.println(object.toString());
+			//System.out.println(objstr.length());
+			//out.writeInt(objstr.length());
+			out.writeUTF(object.toString());
 			out.flush();
 			Log.log("data sent: " + object.toString());
 			return true;

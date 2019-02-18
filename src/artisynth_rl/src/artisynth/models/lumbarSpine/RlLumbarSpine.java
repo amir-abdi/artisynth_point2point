@@ -58,7 +58,7 @@ import artisynth.models.rl.InverseModel;
 
 public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 
-	protected int DEAFULT_PORT = 6010;
+	protected int DEAFULT_PORT = 8097;
 	protected double MOTION_RANGE = 2;
 
 	protected double xPosition;
@@ -331,7 +331,7 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 				if (mon instanceof FrameSpringMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/FrameSpringMonitor/" + mon.getName() + ".m");
-					System.out.println(fileName);
+					//System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
@@ -345,7 +345,7 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 				if (mon instanceof RigidBodyMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/RigidBodyMonitor/" + mon.getName() + ".m");
-					System.out.println(fileName);
+					//System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
@@ -359,7 +359,7 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 				if (mon instanceof FrameMarkerMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/FrameMarkerMonitor/" + mon.getName() + ".m");
-					System.out.println(fileName);
+					//System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
@@ -373,7 +373,7 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 				if (mon instanceof MuscleMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/MuscleMonitor/" + mon.getName() + ".m");
-					System.out.println(fileName);
+					//System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
@@ -387,7 +387,7 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 				if (mon instanceof MultiPointMuscleMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/MultiPointMuscleMonitor/" + mon.getName() + ".m");
-					System.out.println(fileName);
+					//System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
@@ -401,7 +401,7 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 				if (mon instanceof MuscleExciterMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/MuscleExciterMonitor/" + mon.getName() + ".m");
-					System.out.println(fileName);
+					//System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
@@ -415,7 +415,7 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 				if (mon instanceof LevelMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/LevelMonitor/" + mon.getName() + ".m");
-					System.out.println(fileName);
+					//System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();

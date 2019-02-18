@@ -22,6 +22,7 @@ import artisynth.core.mechmodels.ExcitationComponent;
 import artisynth.core.mechmodels.MechSystemBase;
 import artisynth.core.mechmodels.MotionTargetComponent;
 import artisynth.core.mechmodels.MuscleExciter;
+import artisynth.core.mechmodels.Point;
 import artisynth.core.mechmodels.PointList;
 import artisynth.core.mechmodels.RigidBody;
 import artisynth.core.modelbase.ComponentList;
@@ -32,6 +33,7 @@ import artisynth.core.modelbase.RenderableComponentList;
 import artisynth.core.modelbase.StepAdjustment;
 import artisynth.core.workspace.RootModel;
 import artisynth.models.rl.InverseModel;
+import artisynth.models.rl.Log;
 import artisynth.models.rl.NetworkHandler;
 import maspack.matrix.VectorNd;
 
@@ -78,13 +80,13 @@ public class RlTrackingController extends TrackingController {
 	 * @param m mech system, typically your "MechModel"
 	 */
 	public RlTrackingController(MechSystemBase m, InverseModel model) {
-		this(m, model, null, 6010);
+		this(m, model, null, 8097);
 	}
 
 	/**
 	 * Set the RootModel
 	 */
-	public void setRootModel(InverseModel m) {
+	public void setInverseModel(InverseModel m) {
 		myInverseModel = m;
 	}
 
@@ -99,6 +101,7 @@ public class RlTrackingController extends TrackingController {
 		super(m, name);
 		setMech(m);
 		setName(name);
+		setInverseModel(model);
 
 		this.port = port;
 		networkHandler = new NetworkHandler(port);
@@ -205,18 +208,13 @@ public class RlTrackingController extends TrackingController {
 				setExcitations(jo_receive.getJSONArray("excitations"));
 				break;
 			case "getState":
-				ArrayList<MotionTargetComponent> targets = myMotionTerm
-						.getTargets(); // destination --> ref
-				ArrayList<MotionTargetComponent> sources = myMotionTerm
-						.getSources(); // real current position --> real
-
-				VectorNd exs = new VectorNd(new double[numExcitations()]);
-				int idx = getExcitations(exs, 0);
-				assert idx == numExcitations() + 1;
-
-				sendState(targets, sources, exs);
+				sendState();
+				break;
+			case "getStateSize":
+				sendStateSize();
 				break;
 			default:
+				Log.log("Unknown packet type: " + jo_receive.getString("type"));
 				break;
 			}
 		} catch (JSONException e) {
@@ -225,36 +223,96 @@ public class RlTrackingController extends TrackingController {
 
 	}
 
-	public void setExcitations(JSONArray jsonArrayExications)
-			throws JSONException {
-		double[] excitations = new double[numExcitations()];
-		for (int i = 0; i < jsonArrayExications.length(); ++i)
-			excitations[i] = jsonArrayExications.getDouble(i);
-		myExcitations.set(excitations);
-		setExcitations(myExcitations, 0);
-	}
+	private void sendStateSize() {
+		Log.log("Sending state size");
+		int state_size = 0;
 
-	private void sendState(ArrayList<MotionTargetComponent> targets,
-			ArrayList<MotionTargetComponent> sources, VectorNd excitations) {
-		// try {
-		// Thread.sleep(200);
-		// } catch (InterruptedException e) {
-		// Log.log("Error in sleep sendState: " + e.getMessage());
-		// }
-		JSONObject jo_send_state = new JSONObject();
+		// destination, ref, target
+		ArrayList<MotionTargetComponent> targets = myMotionTerm.getTargets(); 
+		
+		// real current position
+		ArrayList<MotionTargetComponent> sources = myMotionTerm.getSources(); 
+
+		for (MotionTargetComponent c : targets) {
+			state_size += c.getVelStateSize();
+			state_size += c.getPosStateSize();
+		}
+
+		for (MotionTargetComponent c : sources) {
+			state_size += c.getVelStateSize();
+			state_size += c.getPosStateSize();
+		}
+
+		state_size += numExcitations();
+		Log.log("state_size: " + state_size);
+		JSONObject jo = new JSONObject();
 		try {
-			jo_send_state.put("type", "state");
-			jo_send_state.put("ref_pos", targets);
-			jo_send_state.put("follow_pos", sources);
-			jo_send_state.put("excitations", excitations);
-			networkHandler.send(jo_send_state);
+			jo.put("type", "stateSize");
+			jo.put("stateSize", state_size);
+			log(jo);
+			networkHandler.send(jo);
 		} catch (JSONException e) {
 			System.out.println("Error in send: " + e.getMessage());
 		}
+	}
+
+	public void sendState() {
+		ArrayList<MotionTargetComponent> targets = myMotionTerm.getTargets(); 
+		ArrayList<MotionTargetComponent> sources = myMotionTerm.getSources(); 
+
+		VectorNd exs = new VectorNd(new double[numExcitations()]);
+		int idx = getExcitations(exs, 0);		
+		assert idx == numExcitations() + 1;
+
+		try {
+			JSONObject jo = new JSONObject();
+			
+			JSONArray targets_array = point2JsonArray(targets);
+			jo.put("targets", targets_array);
+
+			JSONArray sources_array = point2JsonArray(sources);
+			jo.put("sources", sources_array);
+			
+			jo.put("type", "state");			
+			jo.put("excitations", exs.getBuffer());
+			
+			networkHandler.send(jo);
+		} catch (JSONException e) {
+			Log.log("Error in send: " + e.getMessage());
+		}
+	}
+
+	private JSONArray point2JsonArray(
+			ArrayList<MotionTargetComponent> components) throws JSONException {
+		JSONArray jarray = new JSONArray();
+		for (MotionTargetComponent c : components) {
+
+			VectorNd stateVec = new VectorNd(new double[6]);
+			((Point) c).getState(stateVec, 0);
+			
+			JSONObject jo_temp = new JSONObject();
+			jo_temp.put("posVel", stateVec.getBuffer());
+			jo_temp.put("name", c.getName());
+
+			jarray.put(jo_temp);
+		}
+
+		return jarray;
+	}
+
+	public void setExcitations(JSONArray jsonArrayExications)
+			throws JSONException {
+		double[] excitations = new double[numExcitations()];
+		//log("setExcitations");
+		for (int i = 0; i < jsonArrayExications.length(); ++i) {
+			//log(i);
+			excitations[i] = jsonArrayExications.getDouble(i);
+		}
+		myExcitations.set(excitations);
+		setExcitations(myExcitations, 0);
 	}
 
 	public void log(Object obj) {
 		System.out.println(obj);
 	}
 }
-

@@ -24,7 +24,7 @@ VERBOSITY = 4
 HISTOGRAM_FREQ = 1
 
 # Port number
-PORT = 6020
+PORT = 7024
 
 # Constants of the environment
 NUM_MUSCLES = 6
