@@ -58,7 +58,7 @@ import artisynth.models.rl.InverseModel;
 
 public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 
-	protected int DEAFULT_PORT = 8097;
+	protected int DEAFULT_PORT = 4545;
 	protected double MOTION_RANGE = 2;
 
 	protected double xPosition;
@@ -73,20 +73,39 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 	public ControlPanel myTargetPositionerPanel;
 	SpineRandomTargetController sRandomController;
 
-	public static PropertyList myProps = new PropertyList(RlLumbarSpine.class, LumbarSpine.class);
+	double initPosRight[] = { -0.098877193, 1.2771631, 0.0999726 };
+	double initPosLeft[] = { -0.098877193, 1.2771631, -0.1000274 };
+
+	public Vector3d getInitPosition() {
+		Vector3d initPos = new Vector3d();
+		for (int i = 0; i < 3; ++i) {
+			initPos.set(i, (initPosRight[i] + initPosLeft[i]) / 2);
+		}
+		return initPos;
+	}
+
+	public static PropertyList myProps = new PropertyList(RlLumbarSpine.class,
+			LumbarSpine.class);
 
 	public PropertyList getAllPropertyInfo() {
 		return myProps;
 	}
 
 	static {
-		myProps.add("xPosition * *", "x position of target", 0.0, "[-0.10,0.10] NW");
-		myProps.add("yPosition * *", "y position of target", 0.0, "[-0.05,0.05] NW");
-		myProps.add("zPosition * *", "z position of target", 0.0, "[-0.1,0.1] NW");
-		myProps.add("rightTargetRefPosition * *", "reference position of the right target", null, "%.8g");
-		myProps.add("leftTargetRefPosition * *", "reference position of the left target", null, "%.8g");
-		myProps.addReadOnly("rightTargetRealPosition *", "real position of the right target point");
-		myProps.addReadOnly("leftTargetRealPosition *", "real position of the left target point");
+		myProps.add("xPosition * *", "x position of target", 0.0,
+				"[-0.10,0.10] NW");
+		myProps.add("yPosition * *", "y position of target", 0.0,
+				"[-0.05,0.05] NW");
+		myProps.add("zPosition * *", "z position of target", 0.0,
+				"[-0.1,0.1] NW");
+		myProps.add("rightTargetRefPosition * *",
+				"reference position of the right target", null, "%.8g");
+		myProps.add("leftTargetRefPosition * *",
+				"reference position of the left target", null, "%.8g");
+		myProps.addReadOnly("rightTargetRealPosition *",
+				"real position of the right target point");
+		myProps.addReadOnly("leftTargetRealPosition *",
+				"real position of the left target point");
 		myProps.addReadOnly("error_r *", "motion target error on right side");
 		myProps.addReadOnly("error_l *", "motion target error on left side");
 	}
@@ -100,10 +119,12 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 		setXPosition(0);
 		setYPosition(0);
 		setZPosition(0);
-		setRightTargetRefPosition(new Vector3d(-0.10437719, 1.2741631, 0.0999726));
-		setLeftTargetRefPosition(new Vector3d(-0.10437719, 1.2741631, -0.1000274));
-		setRightTargetRealPosition(new Vector3d(-0.098877193, 1.2771631, 0.0999726));
-		setLeftTargetRealPosition(new Vector3d(-0.098877193, 1.2771631, -0.1000274));
+		setRightTargetRefPosition(
+				new Vector3d(-0.10437719, 1.2741631, 0.0999726));
+		setLeftTargetRefPosition(
+				new Vector3d(-0.10437719, 1.2741631, -0.1000274));
+		setRightTargetRealPosition(new Vector3d(initPosRight));
+		setLeftTargetRealPosition(new Vector3d(initPosLeft));
 	}
 
 	// ********************************************************
@@ -129,10 +150,13 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 		NumericOutputProbe nop = new NumericOutputProbe();
 		nop.setName("TargetRealPosition");
 		Property[] props = new Property[2];
-		props[0] = mech.frameMarkers().get("ribcageMotionTarget_r").getProperty("position");
-		props[1] = mech.frameMarkers().get("ribcageMotionTarget_l").getProperty("position");
+		props[0] = mech.frameMarkers().get("ribcageMotionTarget_r")
+				.getProperty("position");
+		props[1] = mech.frameMarkers().get("ribcageMotionTarget_l")
+				.getProperty("position");
 		nop.setOutputProperties(props);
-		nop.setAttachedFileName(ArtisynthPath.getSrcRelativePath(InvLumbarSpineLiftingWeight13.class,
+		nop.setAttachedFileName(ArtisynthPath.getSrcRelativePath(
+				InvLumbarSpineLiftingWeight13.class,
 				"outputProbes/" + "ribcageMotionTarget_position"));
 		nop.setStartStopTimes(0, 15);
 		addOutputProbe(nop);
@@ -146,11 +170,13 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 		Property[] props = new Property[mex.size()];
 		for (int i = 0; i < mex.size(); i++) {
 			String exname = mex.get(i).getName();
-			props[i] = mech.getMuscleExciters().get(exname).getProperty("excitation");
+			props[i] = mech.getMuscleExciters().get(exname)
+					.getProperty("excitation");
 		}
 
 		nop.setOutputProperties(props);
-		nop.setAttachedFileName(ArtisynthPath.getSrcRelativePath(InvLumbarSpineLiftingWeight13.class,
+		nop.setAttachedFileName(ArtisynthPath.getSrcRelativePath(
+				InvLumbarSpineLiftingWeight13.class,
 				"outputProbes/" + "InverseMuscleExcitations.txt"));
 		nop.setStartStopTimes(0, 15);
 		nop.setActive(false);
@@ -162,32 +188,45 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 	// ********************************************************
 	public void addTargetPositionerControlPanel() {
 
-		myTargetPositionerPanel = new ControlPanel("TargetPositioner", "LiveUpdate");
-		myTargetPositionerPanel.addWidget(new JLabel("Adjusting Target Position:"));
+		myTargetPositionerPanel = new ControlPanel("TargetPositioner",
+				"LiveUpdate");
+		myTargetPositionerPanel
+				.addWidget(new JLabel("Adjusting Target Position:"));
 		myTargetPositionerPanel.addWidget("    x Position", this, "xPosition");
 		myTargetPositionerPanel.addWidget("    y Position", this, "yPosition");
 		myTargetPositionerPanel.addWidget("    z Position", this, "zPosition");
 
 		myTargetPositionerPanel.addWidget(new JSeparator());
-		myTargetPositionerPanel.addWidget(new JLabel("Target Reference Position (prescribed to the model):"));
-		myTargetPositionerPanel.addWidget("    target_r", this, "rightTargetRefPosition");
-		myTargetPositionerPanel.addWidget("    target_l", this, "leftTargetRefPosition");
+		myTargetPositionerPanel.addWidget(new JLabel(
+				"Target Reference Position (prescribed to the model):"));
+		myTargetPositionerPanel.addWidget("    target_r", this,
+				"rightTargetRefPosition");
+		myTargetPositionerPanel.addWidget("    target_l", this,
+				"leftTargetRefPosition");
 
 		myTargetPositionerPanel.addWidget(new JSeparator());
-		myTargetPositionerPanel.addWidget(new JLabel("Target Real Position (produced by the model):"));
-		myTargetPositionerPanel.addWidget("    target_r", this, "rightTargetRealPosition");
-		myTargetPositionerPanel.addWidget("    target_l", this, "leftTargetRealPosition");
+		myTargetPositionerPanel.addWidget(
+				new JLabel("Target Real Position (produced by the model):"));
+		myTargetPositionerPanel.addWidget("    target_r", this,
+				"rightTargetRealPosition");
+		myTargetPositionerPanel.addWidget("    target_l", this,
+				"leftTargetRealPosition");
 
 		myTargetPositionerPanel.addWidget(new JSeparator());
-		myTargetPositionerPanel.addWidget("    right motion error", this, "error_r");
-		myTargetPositionerPanel.addWidget("    left motion error", this, "error_l");
+		myTargetPositionerPanel.addWidget("    right motion error", this,
+				"error_r");
+		myTargetPositionerPanel.addWidget("    left motion error", this,
+				"error_l");
 		myTargetPositionerPanel.addWidget(new JSeparator());
 
 		myTargetPositionerPanel.setScrollable(false);
 
-		Dimension framespringsforcesD = getControlPanels().get("FrameSpringsForces").getSize();
-		java.awt.Point loc = getControlPanels().get("FrameSpringsForces").getLocation();
-		myTargetPositionerPanel.setLocation(loc.x, loc.y + framespringsforcesD.height);
+		Dimension framespringsforcesD = getControlPanels()
+				.get("FrameSpringsForces").getSize();
+		java.awt.Point loc = getControlPanels().get("FrameSpringsForces")
+				.getLocation();
+		myTargetPositionerPanel.setLocation(loc.x,
+				loc.y + framespringsforcesD.height);
 		addControlPanel(myTargetPositionerPanel);
 	}
 
@@ -287,7 +326,8 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 		}
 
 		for (String str : bodyMassCenters) {
-			FrameMarkerMonitor mon = new FrameMarkerMonitor(mech.frameMarkers().get(str));
+			FrameMarkerMonitor mon = new FrameMarkerMonitor(
+					mech.frameMarkers().get(str));
 			mon.setName(str + "_monitor");
 			addMonitor(mon);
 		}
@@ -302,7 +342,8 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 
 		for (MultiPointSpring mps : mech.multiPointSprings()) {
 			if (mps instanceof MultiPointSpring) {
-				MultiPointMuscleMonitor mon = new MultiPointMuscleMonitor((MultiPointMuscle) mps);
+				MultiPointMuscleMonitor mon = new MultiPointMuscleMonitor(
+						(MultiPointMuscle) mps);
 				mon.setName(mps.getName() + "_monitor");
 				addMonitor(mon);
 			}
@@ -331,98 +372,106 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 				if (mon instanceof FrameSpringMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/FrameSpringMonitor/" + mon.getName() + ".m");
-					//System.out.println(fileName);
+					// System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
 						parent.mkdirs();
 						((FrameSpringMonitor) mon).openFile(f);
 					} catch (FileNotFoundException e) {
-						System.err.println("Cannot open file '" + fileName + "' (" + e.getMessage() + ")");
+						System.err.println("Cannot open file '" + fileName
+								+ "' (" + e.getMessage() + ")");
 					}
 				}
 
 				if (mon instanceof RigidBodyMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/RigidBodyMonitor/" + mon.getName() + ".m");
-					//System.out.println(fileName);
+					// System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
 						parent.mkdirs();
 						((RigidBodyMonitor) mon).openFile(f);
 					} catch (FileNotFoundException e) {
-						System.err.println("Cannot open file '" + fileName + "' (" + e.getMessage() + ")");
+						System.err.println("Cannot open file '" + fileName
+								+ "' (" + e.getMessage() + ")");
 					}
 				}
 
 				if (mon instanceof FrameMarkerMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/FrameMarkerMonitor/" + mon.getName() + ".m");
-					//System.out.println(fileName);
+					// System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
 						parent.mkdirs();
 						((FrameMarkerMonitor) mon).openFile(f);
 					} catch (FileNotFoundException e) {
-						System.err.println("Cannot open file '" + fileName + "' (" + e.getMessage() + ")");
+						System.err.println("Cannot open file '" + fileName
+								+ "' (" + e.getMessage() + ")");
 					}
 				}
 
 				if (mon instanceof MuscleMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/MuscleMonitor/" + mon.getName() + ".m");
-					//System.out.println(fileName);
+					// System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
 						parent.mkdirs();
 						((MuscleMonitor) mon).openFile(f);
 					} catch (FileNotFoundException e) {
-						System.err.println("Cannot open file '" + fileName + "' (" + e.getMessage() + ")");
+						System.err.println("Cannot open file '" + fileName
+								+ "' (" + e.getMessage() + ")");
 					}
 				}
 
 				if (mon instanceof MultiPointMuscleMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
-							"out/MultiPointMuscleMonitor/" + mon.getName() + ".m");
-					//System.out.println(fileName);
+							"out/MultiPointMuscleMonitor/" + mon.getName()
+									+ ".m");
+					// System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
 						parent.mkdirs();
 						((MultiPointMuscleMonitor) mon).openFile(f);
 					} catch (FileNotFoundException e) {
-						System.err.println("Cannot open file '" + fileName + "' (" + e.getMessage() + ")");
+						System.err.println("Cannot open file '" + fileName
+								+ "' (" + e.getMessage() + ")");
 					}
 				}
 
 				if (mon instanceof MuscleExciterMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/MuscleExciterMonitor/" + mon.getName() + ".m");
-					//System.out.println(fileName);
+					// System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
 						parent.mkdirs();
 						((MuscleExciterMonitor) mon).openFile(f);
 					} catch (FileNotFoundException e) {
-						System.err.println("Cannot open file '" + fileName + "' (" + e.getMessage() + ")");
+						System.err.println("Cannot open file '" + fileName
+								+ "' (" + e.getMessage() + ")");
 					}
 				}
 
 				if (mon instanceof LevelMonitor) {
 					String fileName = ArtisynthPath.getSrcRelativePath(this,
 							"out/LevelMonitor/" + mon.getName() + ".m");
-					//System.out.println(fileName);
+					// System.out.println(fileName);
 					File f = new File(fileName);
 					try {
 						File parent = f.getParentFile();
 						parent.mkdirs();
 						((LevelMonitor) mon).openFile(f);
 					} catch (FileNotFoundException e) {
-						System.err.println("Cannot open file '" + fileName + "' (" + e.getMessage() + ")");
+						System.err.println("Cannot open file '" + fileName
+								+ "' (" + e.getMessage() + ")");
 					}
 				}
 			}
@@ -461,7 +510,8 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 	public void addSimpleInverseSolver() {
 
 		// Tracker t = new Tracker (mech, "spineTracker");
-		RlTrackingController t = new RlTrackingController(mech, (InverseModel) this, "spineTracker", DEAFULT_PORT);
+		RlTrackingController t = new RlTrackingController(mech,
+				(InverseModel) this, "spineTracker", DEAFULT_PORT);
 		t.addMotionTarget(mech.frameMarkers().get("ribcageMotionTarget_r"));
 		t.addMotionTarget(mech.frameMarkers().get("ribcageMotionTarget_l"));
 		t.setUseTrapezoidalSolver(1);
@@ -487,7 +537,8 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 		rp2.setPointColor(Color.RED);
 		t.setMotionRenderProps(rp1, rp2);
 
-		sRandomController = new SpineRandomTargetController((Point) targets.get(0), (Point) targets.get(1));
+		sRandomController = new SpineRandomTargetController(
+				(Point) targets.get(0), (Point) targets.get(1));
 
 		addController(sRandomController);
 		addController(t);
@@ -526,25 +577,31 @@ public class RlLumbarSpine extends LumbarSpine implements InverseModel {
 				double yPosition = r.nextDouble() * MOTION_RANGE;
 				double zPosition = r.nextDouble() * MOTION_RANGE;
 
-				Point3d pos1 = new Point3d(getRightTargetRefPosition().x, getRightTargetRefPosition().y,
+				Point3d pos1 = new Point3d(getRightTargetRefPosition().x,
+						getRightTargetRefPosition().y,
 						getRightTargetRefPosition().z);
 				pos1.add(new Vector3d(xPosition, yPosition, zPosition));
 				myp1.setPosition(pos1);
 
-				Point3d pos2 = new Point3d(getLeftTargetRefPosition().x, getLeftTargetRefPosition().y,
+				Point3d pos2 = new Point3d(getLeftTargetRefPosition().x,
+						getLeftTargetRefPosition().y,
 						getLeftTargetRefPosition().z);
 				pos2.add(new Vector3d(xPosition, yPosition, zPosition));
 				myp2.setPosition(pos2);
 
 				// Tracing target real position
-				setRightTargetRealPosition(mech.frameMarkers().get("ribcageMotionTarget_r").getPosition());
-				setLeftTargetRealPosition(mech.frameMarkers().get("ribcageMotionTarget_l").getPosition());
+				setRightTargetRealPosition(mech.frameMarkers()
+						.get("ribcageMotionTarget_r").getPosition());
+				setLeftTargetRealPosition(mech.frameMarkers()
+						.get("ribcageMotionTarget_l").getPosition());
 
 				// Post Processing
 				Point3d er_r = new Point3d();
 				Point3d er_l = new Point3d();
-				er_r.sub(myp1.getPosition(), mech.frameMarkers().get("ribcageMotionTarget_r").getPosition());
-				er_l.sub(myp2.getPosition(), mech.frameMarkers().get("ribcageMotionTarget_l").getPosition());
+				er_r.sub(myp1.getPosition(), mech.frameMarkers()
+						.get("ribcageMotionTarget_r").getPosition());
+				er_l.sub(myp2.getPosition(), mech.frameMarkers()
+						.get("ribcageMotionTarget_l").getPosition());
 
 				error_r = er_r.norm();
 				error_l = er_l.norm();

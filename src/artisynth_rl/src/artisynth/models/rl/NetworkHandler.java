@@ -21,7 +21,7 @@ public class NetworkHandler extends Thread {
 	}
 
 	public NetworkHandler() {
-		this(8097);
+		this(4545);
 	}
 
 	public void run() {
@@ -31,6 +31,9 @@ public class NetworkHandler extends Thread {
 				ServerSocket listener = new ServerSocket(port);
 				while (true) {
 					this.socket = listener.accept(); // assuming single client
+					if (this.networkReceiveHandler != null)
+						this.networkReceiveHandler.stop_thread();
+					
 					this.networkReceiveHandler = new NetworkReceiveHanlder(socket.getInputStream());
 					this.networkReceiveHandler.start();
 //					out = new PrintWriter(socket.getOutputStream(), true);
@@ -50,6 +53,7 @@ public class NetworkHandler extends Thread {
 			return null;
 		if (networkReceiveHandler == null)
 			return null;
+		//log("NetworkHandler calling networkReceiveHandler.getMessage()");
 		return networkReceiveHandler.getMessage();
 	}
 
@@ -65,7 +69,6 @@ public class NetworkHandler extends Thread {
 		try {
 			String objstr = object.toString();
 			//System.out.println(objstr.length());
-			//out.writeInt(objstr.length());
 			out.writeUTF(object.toString());
 			out.flush();
 			Log.log("data sent: " + object.toString());
@@ -79,5 +82,9 @@ public class NetworkHandler extends Thread {
 	public void closeConnection() throws IOException {
 		if (socket.isConnected())
 			socket.close();
+	}
+	
+	public void log(Object obj) {
+		System.out.println(obj);
 	}
 }

@@ -35,6 +35,7 @@ import artisynth.core.workspace.RootModel;
 import artisynth.models.rl.InverseModel;
 import artisynth.models.rl.Log;
 import artisynth.models.rl.NetworkHandler;
+import maspack.matrix.Vector3d;
 import maspack.matrix.VectorNd;
 
 /**
@@ -73,6 +74,8 @@ public class RlTrackingController extends TrackingController {
 	protected int port;
 	NetworkHandler networkHandler;
 	InverseModel myInverseModel;
+	Vector3d initPosition;
+	long waitBeforeStateUpdate = 300; // milliseconds
 
 	/**
 	 * Creates a tracking controller for a given mech system
@@ -80,7 +83,7 @@ public class RlTrackingController extends TrackingController {
 	 * @param m mech system, typically your "MechModel"
 	 */
 	public RlTrackingController(MechSystemBase m, InverseModel model) {
-		this(m, model, null, 8097);
+		this(m, model, null, 4545);
 	}
 
 	/**
@@ -102,6 +105,8 @@ public class RlTrackingController extends TrackingController {
 		setMech(m);
 		setName(name);
 		setInverseModel(model);
+
+		this.initPosition = model.getInitPosition();
 
 		this.port = port;
 		networkHandler = new NetworkHandler(port);
@@ -178,6 +183,7 @@ public class RlTrackingController extends TrackingController {
 	 */
 	@Override
 	public void apply(double t0, double t1) {
+		//log("RlTrackingController apply getMessage");
 		JSONObject jo_receive = networkHandler.getMessage();
 		// TODO: Not sure yet whether to empty the queu in one time step?
 		// or empty until reaching a setExcitation thingy?
@@ -192,9 +198,6 @@ public class RlTrackingController extends TrackingController {
 		if (!isEnabled()) {
 			return;
 		}
-
-		// amirabdi: set exications using such call...
-		// setExcitations(myExcitations, 0);
 	}
 
 	public void applyMessage(JSONObject jo_receive) {
@@ -202,12 +205,14 @@ public class RlTrackingController extends TrackingController {
 			log("advance: jo_receive = " + jo_receive.getString("type"));
 			switch (jo_receive.getString("type")) {
 			case "reset":
-				myInverseModel.resetTargetPosition();
+				//myInverseModel.resetTargetPosition();
 				break;
 			case "setExcitations":
 				setExcitations(jo_receive.getJSONArray("excitations"));
 				break;
 			case "getState":
+				//log("Sleep for " + waitBeforeStateUpdate + " ms.");
+				//Thread.sleep(waitBeforeStateUpdate);
 				sendState();
 				break;
 			case "getStateSize":
@@ -227,11 +232,8 @@ public class RlTrackingController extends TrackingController {
 		Log.log("Sending state size");
 		int state_size = 0;
 
-		// destination, ref, target
-		ArrayList<MotionTargetComponent> targets = myMotionTerm.getTargets(); 
-		
-		// real current position
-		ArrayList<MotionTargetComponent> sources = myMotionTerm.getSources(); 
+		ArrayList<MotionTargetComponent> targets = myMotionTerm.getTargets();
+		ArrayList<MotionTargetComponent> sources = myMotionTerm.getSources();
 
 		for (MotionTargetComponent c : targets) {
 			state_size += c.getVelStateSize();
@@ -257,44 +259,118 @@ public class RlTrackingController extends TrackingController {
 	}
 
 	public void sendState() {
-		ArrayList<MotionTargetComponent> targets = myMotionTerm.getTargets(); 
-		ArrayList<MotionTargetComponent> sources = myMotionTerm.getSources(); 
+		// destination, ref, target
+		ArrayList<MotionTargetComponent> targets = myMotionTerm.getTargets();
+
+		// real current position
+		ArrayList<MotionTargetComponent> sources = myMotionTerm.getSources();
 
 		VectorNd exs = new VectorNd(new double[numExcitations()]);
-		int idx = getExcitations(exs, 0);		
+		int idx = getExcitations(exs, 0);
 		assert idx == numExcitations() + 1;
 
 		try {
 			JSONObject jo = new JSONObject();
-			
-			JSONArray targets_array = point2JsonArray(targets);
-			jo.put("targets", targets_array);
 
-			JSONArray sources_array = point2JsonArray(sources);
-			jo.put("sources", sources_array);
-			
-			jo.put("type", "state");			
+			// JSONArray targets_array = point2JsonArray(targets, initPosition);
+			// jo.put("targets", targets_array);
+
+			for (MotionTargetComponent c : targets) {
+				double[] posVel = point2Vec(c, initPosition);
+				//log("posVel real: " + c.getName() + ' ' 
+				//		+ posVel[0] + ' ' + posVel[1] + ' '
+				//		+ posVel[2] + ' ');
+				jo.put(c.getName(), posVel);
+			}
+
+			// JSONArray sources_array = point2JsonArray(sources, initPosition);
+			// jo.put("sources", sources_array);
+			for (MotionTargetComponent c : sources) {
+				double[] posVel = point2Vec(c, initPosition);
+				//log("posVel real: " + c.getName() + ' ' 
+				//		+ posVel[0] + ' ' + posVel[1] + ' '
+				//		+ posVel[2] + ' ');
+				jo.put(c.getName(), posVel);
+			}
+
+			jo.put("type", "state");
 			jo.put("excitations", exs.getBuffer());
-			
+
 			networkHandler.send(jo);
 		} catch (JSONException e) {
 			Log.log("Error in send: " + e.getMessage());
 		}
 	}
 
+	private double[] point2Vec(MotionTargetComponent component,
+			Vector3d initPos) throws JSONException {
+		VectorNd stateVec = new VectorNd(new double[6]);
+		((Point) component).getState(stateVec, 0);
+
+		for (int i = 0; i < 3; ++i)
+			stateVec.getBuffer()[i] -= initPos.get(i);
+		return stateVec.getBuffer();
+	}
+
+	double maxVelX = 0;
+	double maxVelY = 0;
+	double maxVelZ = 0;
+
+	double maxPosX = -10000;
+	double maxPosY = -10000;
+	double maxPosZ = -10000;
+
+	double minPosX = 10000;
+	double minPosY = 10000;
+	double minPosZ = 10000;
+
 	private JSONArray point2JsonArray(
-			ArrayList<MotionTargetComponent> components) throws JSONException {
+			ArrayList<MotionTargetComponent> components, Vector3d initPos)
+			throws JSONException {
 		JSONArray jarray = new JSONArray();
 		for (MotionTargetComponent c : components) {
 
 			VectorNd stateVec = new VectorNd(new double[6]);
 			((Point) c).getState(stateVec, 0);
-			
+
+//			log("before" + stateVec.getBuffer()[0] + " "
+//					+ stateVec.getBuffer()[1] + " " + stateVec.getBuffer()[2]);
+			for (int i = 0; i < 3; ++i)
+				stateVec.getBuffer()[i] -= initPos.get(i);
+			log(initPos);
+			log("after" + stateVec.getBuffer()[0] + " "
+					+ stateVec.getBuffer()[1] + " " + stateVec.getBuffer()[2]);
+
 			JSONObject jo_temp = new JSONObject();
 			jo_temp.put("posVel", stateVec.getBuffer());
 			jo_temp.put("name", c.getName());
 
 			jarray.put(jo_temp);
+
+//			if (Math.abs(stateVec.getBuffer()[3]) > maxVelX)
+//				maxVelX = Math.abs(stateVec.getBuffer()[3]);
+//			if (Math.abs(stateVec.getBuffer()[4]) > maxVelY)
+//				maxVelY = Math.abs(stateVec.getBuffer()[4]);
+//			if (Math.abs(stateVec.getBuffer()[5]) > maxVelZ)
+//				maxVelZ = Math.abs(stateVec.getBuffer()[5]);
+//			log("Max vel values: " + maxVelX + ", " + maxVelY + ", " + maxVelZ);
+//
+//			if (stateVec.getBuffer()[0] > maxPosX)
+//				maxPosX = stateVec.getBuffer()[0];
+//			if (stateVec.getBuffer()[1] > maxPosY)
+//				maxPosY = stateVec.getBuffer()[1];
+//			if (stateVec.getBuffer()[2] > maxPosZ)
+//				maxPosZ = stateVec.getBuffer()[2];
+//			log("Max pos values: " + maxPosX + ", " + maxPosY + ", " + maxPosZ);
+//
+//			if (stateVec.getBuffer()[0] < minPosX)
+//				minPosX = stateVec.getBuffer()[0];
+//			if (stateVec.getBuffer()[1] < minPosY)
+//				minPosY = stateVec.getBuffer()[1];
+//			if (stateVec.getBuffer()[2] < minPosZ)
+//				minPosZ = stateVec.getBuffer()[2];
+//			log("Min Pos values: " + minPosX + ", " + minPosY + ", " + minPosZ);
+
 		}
 
 		return jarray;
@@ -303,9 +379,9 @@ public class RlTrackingController extends TrackingController {
 	public void setExcitations(JSONArray jsonArrayExications)
 			throws JSONException {
 		double[] excitations = new double[numExcitations()];
-		//log("setExcitations");
+		// log("setExcitations");
 		for (int i = 0; i < jsonArrayExications.length(); ++i) {
-			//log(i);
+			// log(i);
 			excitations[i] = jsonArrayExications.getDouble(i);
 		}
 		myExcitations.set(excitations);

@@ -16,14 +16,20 @@ public class NetworkReceiveHanlder extends Thread {
 	Queue<JSONObject> queue;
 	public ReentrantLock lock = new ReentrantLock();
 	byte[] b = new byte[100000];
+	public Boolean exit;
 
 	public NetworkReceiveHanlder(InputStream socket) {
 		this.in = socket;
 		queue = new LinkedList<JSONObject>();
+		this.exit = false;
+	}
+		
+	public void stop_thread() {
+		this.exit = true;
 	}
 
 	public void run() {
-		while (true) {
+		while (!exit) {
 			try {
 				JSONObject jo = receiveJsonObject();
 
@@ -70,10 +76,13 @@ public class NetworkReceiveHanlder extends Thread {
 	protected JSONObject getMessage() {
 
 		JSONObject jo = null;
-
+		//log("NetworkReceiveHandler.getMessage: queue.size=" + queue.size() + 
+		//		" empty?= " + queue.isEmpty());
 		if (queue.size() > 0) {
-			if (lock.isLocked())
+			if (lock.isLocked()) {
+				log("NetworkReceiveHandler.getMessage: lock is locked");
 				return null;
+			}
 			try {
 				Log.log("Locking lock in getMessage");
 				lock.lock();
@@ -103,7 +112,7 @@ public class NetworkReceiveHanlder extends Thread {
 		ByteBuffer wrapped = ByteBuffer.wrap(int_bytes);
 
 		int bytesToRead = wrapped.getInt();
-		System.out.println("bytesToRead: " + bytesToRead);
+		//System.out.println("bytesToRead: " + bytesToRead);
 		int numbytes = in.read(b, 0, bytesToRead);
 		if (numbytes <= 0)
 			return null;
@@ -116,5 +125,7 @@ public class NetworkReceiveHanlder extends Thread {
 		}
 		return jo;
 	}
-
+	public void log(Object obj) {
+		System.out.println(obj);
+	}
 }

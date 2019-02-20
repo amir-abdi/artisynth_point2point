@@ -40,22 +40,6 @@ if args.cuda and torch.cuda.is_available() and args.cuda_deterministic:
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-try:
-    os.makedirs(args.log_dir)
-except OSError:
-    files = glob.glob(os.path.join(args.log_dir, '*.monitor.csv'))
-    for f in files:
-        os.remove(f)
-
-eval_log_dir = args.log_dir + "_eval"
-
-try:
-    os.makedirs(eval_log_dir)
-except OSError:
-    files = glob.glob(os.path.join(eval_log_dir, '*.monitor.csv'))
-    for f in files:
-        os.remove(f)
-
 
 def setup_logger(level, name):
     log_formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
@@ -73,29 +57,29 @@ def setup_logger(level, name):
 
 
 def main():
-    name = 'Spine-test0'
-    setup_logger(args.verbose, name)
+    setup_logger(args.verbose, args.model_name)
 
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
     if args.vis:
         from visdom import Visdom
-        viz = Visdom(port=args.port)
+        viz = Visdom(port=args.visdom_port)
         win = None
 
     # todo: extend to multi process artisynth env
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, config.log_directory,
                          args.add_timestep, device, False, num_frame_stack=None,
-                         ip=args.ip, port=args.port)
-
-    # envs = make_env(args.env_name, args.seed, 1, config.log_directory, False, True,
-    #                 name=name, ip=args.ip, port=args.port)
-
+                         ip=args.ip, port=args.port, wait_action=args.wait_action)
 
     actor_critic = Policy(envs.observation_space.shape, envs.action_space,
                           base_kwargs={'recurrent': args.recurrent_policy})
+    # load model
+    if args.load_path is not None:
+        logger.info("loading model: {}".format(args.load_path))
+        actor_critic = torch.load(args.load_path)
+
     actor_critic.to(device)
 
     if args.algo == 'a2c':
@@ -123,19 +107,20 @@ def main():
     episode_rewards = deque(maxlen=10)
 
     start = time.time()
-    for update_iter in range(num_updates):
+    for iter in range(num_updates):
 
         if args.use_linear_lr_decay:
             # decrease learning rate linearly
             if args.algo == "acktr":
                 # use optimizer's learning rate since it's hard-coded in kfac.py
-                update_linear_schedule(agent.optimizer, update_iter, num_updates, agent.optimizer.lr)
+                update_linear_schedule(agent.optimizer, iter, num_updates, agent.optimizer.lr)
             else:
-                update_linear_schedule(agent.optimizer, update_iter, num_updates, args.lr)
+                update_linear_schedule(agent.optimizer, iter, num_updates, args.lr)
 
         if args.algo == 'ppo' and args.use_linear_clip_decay:
-            agent.clip_param = args.clip_param * (1 - update_iter / float(num_updates))
+            agent.clip_param = args.clip_param * (1 - iter / float(num_updates))
 
+        logger.debug('Start training')
         for step in range(args.num_steps):
             # Sample actions
             with torch.no_grad():
@@ -155,7 +140,6 @@ def main():
             masks = torch.FloatTensor([[0.0] if done_ else [1.0]
                                        for done_ in done])
 
-            reward = torch.tensor(reward)
             rollouts.insert(obs, recurrent_hidden_states, action, action_log_prob, value, reward, masks)
 
         with torch.no_grad():
@@ -164,36 +148,29 @@ def main():
                                                 rollouts.masks[-1]).detach()
 
         rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
-
         value_loss, action_loss, dist_entropy = agent.update(rollouts)
-
         rollouts.after_update()
 
         # save for every interval-th episode or for the last epoch
-        if (update_iter % args.save_interval == 0 or update_iter == num_updates - 1) and args.save_dir != "":
-            save_path = os.path.join(args.save_dir, args.algo)
-            try:
-                os.makedirs(save_path)
-            except OSError:
-                pass
+        if iter % args.save_interval == 0 or iter == num_updates - 1:
+            save_path = os.path.join(config.trained_directory,
+                                     args.algo + "-" + args.env_name + ".pt")
+            logger.info("Saving model: {}".format(save_path))
+            torch.save(actor_critic, save_path)
 
-            # A really ugly way to save a model to CPU
-            save_model = actor_critic
-            if args.cuda:
-                save_model = copy.deepcopy(actor_critic).cpu()
+        total_num_steps = (iter + 1) * args.num_processes * args.num_steps
 
-            save_model = [save_model,
-                          getattr(get_vec_normalize(envs), 'ob_rms', None)]
+        if iter % args.log_interval == 0:
+            logger.info('{}:{}\t value_loss: {:+.4f}, action_loss: {:+.4f}, dist_entropy: {:+.4f}'.format(
+                iter, total_num_steps, value_loss, action_loss, dist_entropy))
 
-            torch.save(save_model, os.path.join(save_path, args.env_name + ".pt"))
-
-        total_num_steps = (update_iter + 1) * args.num_processes * args.num_steps
-
-        if update_iter % args.log_interval == 0 and len(episode_rewards) > 1:
+        # todo: switch to episodic and cover other locations. This log is only for episodic
+        if iter % args.episode_log_interval == 0 and len(episode_rewards) > 1:
             end = time.time()
-            print(
-                "Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}\n".
-                    format(update_iter, total_num_steps,
+            logger.info(
+                "Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median "
+                "reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}\n".
+                    format(iter, total_num_steps,
                            int(total_num_steps / (end - start)),
                            len(episode_rewards),
                            np.mean(episode_rewards),
@@ -202,16 +179,16 @@ def main():
                            np.max(episode_rewards), dist_entropy,
                            value_loss, action_loss))
 
-        if (args.eval_interval is not None
-                and len(episode_rewards) > 1
-                and update_iter % args.eval_interval == 0):
+        # todo: after adding episodic training, replace this
+        # and len(episode_rewards) > 1 \
+        if args.eval_interval is not None and iter % args.eval_interval == 0:
+            logger.info('Evaluate')
 
-            eval_envs = make_vec_envs(
-                args.env_name, args.seed + args.num_processes, args.num_processes,
-                args.gamma, eval_log_dir, args.add_timestep, device, True)
-
-            # envs = make_env(args.env_name, args.seed, 1, config.log_directory, True,
-            #                 name=name, ip=args.ip, port=args.port)
+            # todo: what is allow_early_resets? (False for main, True for eval)
+            eval_envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
+                                      args.gamma, config.log_directory,
+                                      args.add_timestep, device, True, num_frame_stack=None,
+                                      ip=args.ip, port=args.port, wait_action=args.wait_action)
 
             vec_norm = get_vec_normalize(eval_envs)
             if vec_norm is not None:
@@ -219,13 +196,15 @@ def main():
                 vec_norm.ob_rms = get_vec_normalize(envs).ob_rms
 
             eval_episode_rewards = []
+            rewards = []
 
             obs = eval_envs.reset()
             eval_recurrent_hidden_states = torch.zeros(args.num_processes,
                                                        actor_critic.recurrent_hidden_state_size, device=device)
             eval_masks = torch.zeros(args.num_processes, 1, device=device)
 
-            while len(eval_episode_rewards) < 10:
+            # while len(eval_episode_rewards) < 10:
+            for eval_step in range(args.num_steps):
                 with torch.no_grad():
                     _, action, _, eval_recurrent_hidden_states = actor_critic.act(
                         obs, eval_recurrent_hidden_states, eval_masks, deterministic=True)
@@ -237,21 +216,31 @@ def main():
                                            for done_ in done],
                                           dtype=torch.float32,
                                           device=device)
+                logger.info('eval step reward: {}'.format(reward))
 
-                for info in infos:
-                    if 'episode' in info.keys():
-                        eval_episode_rewards.append(info['episode']['r'])
+                if args.episodic:
+                    for info in infos:
+                        if 'episode' in info.keys():
+                            eval_episode_rewards.append(info['episode']['r'])
+                else:
+                    rewards.append(reward)
 
             eval_envs.close()
 
-            print(" Evaluation using {} episodes: mean reward {:.5f}\n".
-                  format(len(eval_episode_rewards),
-                         np.mean(eval_episode_rewards)))
+            if args.episodic:
+                logger.info("Evaluation using {} episodes: mean reward {:.5f}\n".
+                            format(len(eval_episode_rewards),
+                                   np.mean(eval_episode_rewards)))
+            else:
+                logger.info("Evaluation using {} steps: mean reward {:.5f}\n".
+                            format(args.num_steps,
+                                   np.mean(rewards)))
 
-        if args.vis and update_iter % args.vis_interval == 0:
+        if args.vis and iter % args.vis_interval == 0:
             try:
                 # Sometimes monitor doesn't properly flush the outputs
-                win = visdom_plot(viz, win, args.log_dir, args.env_name,
+                logger.info("Visdom log update")
+                win = visdom_plot(viz, win, config.visdom_log_directory, args.env_name,
                                   args.algo, args.num_env_steps)
             except IOError:
                 pass

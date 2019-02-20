@@ -11,22 +11,26 @@ logger = logging.getLogger()
 
 class Net:
     def __init__(self, ip, port):
+        self.ip = ip
+        self.port = port
         self.connect(ip, port)
 
     def connect(self, ip, port):
-        logger.info('Connecting to %s:%i', ip, port)
+        # logger.info('Connecting to %s:%i', ip, port)
         server_address = (ip, port)
 
         # todo: not sure whether to set blocking or not
-        try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.setblocking(1)
-            self.sock.connect(server_address)
-            logger.info('Conneted to server at: {}'.format(server_address))
-        except ConnectionError as e:
-            logger.error("Could not connect to {}:{}".format(ip, port))
-            logger.error(e)
-            raise e
+        while True:
+            try:
+                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.sock.setblocking(1)
+                self.sock.connect(server_address)
+                logger.info('Conneted to server at: {}'.format(server_address))
+                break
+            except ConnectionError as e:
+                logger.error("Could not connect to {}:{}".format(ip, port))
+                logger.error(e)
+                # raise e
 
     def send(self, obj=None, message_type=''):
         if not obj:
@@ -44,25 +48,26 @@ class Net:
                 bytes_sent = self.sock.send(json_obj)
             logger.debug('obj sent: ' + str(obj))
         except NameError as err:
-            logger.exception('error in send')
+            logger.exception('NameError in send: {}'.format(err))
             raise err
+        except BrokenPipeError as err:
+            logger.exception('BrokenPipeError in send: {}'.format(err))
+            self.connect(self.ip, self.port)
 
     def receive_message(self, msg_type, retry_type=None):
-        rec_dict = self.receive(0.5)
         while True:
             try:
+                rec_dict = self.receive(0.5)
                 if rec_dict[c.TYPE_STR] == msg_type:
                     break
                 else:
                     raise Exception("Expected {}, but got {} packet.".format(msg_type, rec_dict['msg_type']))
             except Exception as e:
-                logger.error('Error in receive_message receive data: %s.', str(e))
-                if retry_type is not None:
-                    self.send(message_type=retry_type)
-                    rec_dict = self.receive(2)
-                else:
-                    # raise e
-                    rec_dict = self.receive_message(msg_type, retry_type=retry_type)
+                logger.error('Error in receive_message: %s.', str(e))
+                self.connect(self.ip, self.port)
+                logger.info("Retry msg={}, retry={}".format(msg_type, retry_type))
+                self.send(message_type=retry_type)
+                # return self.receive_message(msg_type, retry_type=retry_type)
 
         return rec_dict
 
@@ -84,9 +89,9 @@ class Net:
             while len(rec_bytes) < rec_int:
                 rec_bytes.extend(self.sock.recv(rec_int - len(rec_bytes)))
             rec = bytearray(rec_bytes).decode("utf-8")
-        except TimeoutException:
+        except TimeoutException as err:
             logger.error("Error: Socket timeout in receive")
-            return None
+            raise err
         except ValueError as err:
             if rec_int_bytes == b'\n':
                 return None

@@ -38,9 +38,9 @@ def make_env(env_id, seed, rank, log_dir, add_timestep, allow_early_resets, **kw
 
 def make_vec_envs(env_name, seed, num_processes, gamma, log_dir, add_timestep,
                   device, allow_early_resets, num_frame_stack=None,
-                  ip='localhost', port=8097):
+                  ip='localhost', port=8097, wait_action=0):
     envs = [make_env(env_name, seed, i, log_dir, add_timestep, allow_early_resets,
-                     ip=ip, port=port, name=env_name)
+                     ip=ip, port=port, name=env_name, wait_action=wait_action)
             for i in range(num_processes)]
 
     if len(envs) > 1:
