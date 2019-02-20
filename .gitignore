@@ -33,3 +33,4 @@ venv*
 output*
 .idea*
 src/__pycache__*
+results*
