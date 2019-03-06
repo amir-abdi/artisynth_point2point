@@ -4,6 +4,7 @@ import os
 import time
 import logging
 from collections import deque
+import wandb
 
 import numpy as np
 import torch
@@ -67,14 +68,16 @@ def main():
         viz = Visdom(port=args.visdom_port)
         win = None
 
-    # todo: extend to multi process artisynth env
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, config.log_directory,
-                         args.add_timestep, device, False, num_frame_stack=None,
-                         ip=args.ip, port=args.port, wait_action=args.wait_action)
+                         args.add_timestep, device,
+                         allow_early_resets=True, num_frame_stack=None,
+                         ip=args.ip, start_port=args.port, wait_action=args.wait_action,
+                         reset_step=args.reset_step)
 
     actor_critic = Policy(envs.observation_space.shape, envs.action_space,
-                          base_kwargs={'recurrent': args.recurrent_policy})
+                          base_kwargs={'recurrent': args.recurrent_policy,
+                                       'hidden_size': args.hidden_layer_size})
     # load model
     if args.load_path is not None:
         logger.info("loading model: {}".format(args.load_path))
@@ -91,7 +94,8 @@ def main():
         agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.num_mini_batch,
                          args.value_loss_coef, args.entropy_coef, lr=args.lr,
                          eps=args.eps,
-                         max_grad_norm=args.max_grad_norm)
+                         max_grad_norm=args.max_grad_norm,
+                         use_clipped_value_loss=True)
     elif args.algo == 'acktr':
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
                                args.entropy_coef, acktr=True)
@@ -104,23 +108,47 @@ def main():
     rollouts.obs[0].copy_(obs)
     rollouts.to(device)
 
-    episode_rewards = deque(maxlen=10)
+    episode_rewards = deque(maxlen=20)
+    episode_distance = deque(maxlen=20)
 
+    if args.use_wandb:
+        wandb.init(project='LumbarSpine', config=args, group=args.model_name,
+                   resume=args.resume_wandb)
+        # wandb.watch(actor_critic)
+
+        if wandb.run.resumed:
+            logger.info('Wandb resumed!')
+
+    # --------------------- train ----------------------------
     start = time.time()
     for iter in range(num_updates):
+        logger.info('Training {}/{} updates'.format(iter, num_updates))
+        if args.test:
+            break
+
+        # todo: maybe this is what is making things confusing?!
+        envs.reset()
+
+        # HACKY way of reconnecting back the main env to avoid packet drop
+        # for i in range(args.num_processes):
+        #     envs.venv.envs[i].env.net.connect(args.ip, args.port)
 
         if args.use_linear_lr_decay:
             # decrease learning rate linearly
             if args.algo == "acktr":
                 # use optimizer's learning rate since it's hard-coded in kfac.py
-                update_linear_schedule(agent.optimizer, iter, num_updates, agent.optimizer.lr)
+                lr = update_linear_schedule(agent.optimizer, iter, num_updates, agent.optimizer.lr)
             else:
-                update_linear_schedule(agent.optimizer, iter, num_updates, args.lr)
+                lr = update_linear_schedule(agent.optimizer, iter, num_updates, args.lr)
+        else:
+            lr = args.lr
 
         if args.algo == 'ppo' and args.use_linear_clip_decay:
             agent.clip_param = args.clip_param * (1 - iter / float(num_updates))
 
-        logger.debug('Start training')
+        distances = []
+        vels = []
+
         for step in range(args.num_steps):
             # Sample actions
             with torch.no_grad():
@@ -135,6 +163,13 @@ def main():
             for info in infos:
                 if 'episode' in info.keys():
                     episode_rewards.append(info['episode']['r'])
+                    episode_distance.append(info['episode_']['distance'])
+                if 'distance' in info.keys():
+                    distances.append(info['distance'])
+                    vels.append(info['vel'])
+
+            # if step % args.reset_step == 0:
+            #     envs.reset()
 
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0]
@@ -160,9 +195,23 @@ def main():
 
         total_num_steps = (iter + 1) * args.num_processes * args.num_steps
 
-        if iter % args.log_interval == 0:
-            logger.info('{}:{}\t value_loss: {:+.4f}, action_loss: {:+.4f}, dist_entropy: {:+.4f}'.format(
-                iter, total_num_steps, value_loss, action_loss, dist_entropy))
+        log_info = {
+            'average_vel': np.mean(vels),
+            'average_distance': np.mean(distances),
+            'value_loss': value_loss,
+            'action_loss': action_loss,
+            'dist_entropy': dist_entropy,
+            'lr': lr,
+            'agent_clip_param': agent.clip_param,
+        }
+
+        if len(episode_rewards) > 1:
+            log_info.update({'mean_episode_reward': np.mean(episode_rewards),
+                             'median_episode_reward': np.median(episode_rewards),
+                             'min_episode_reward': np.min(episode_rewards),
+                             'max_episode_reward': np.max(episode_rewards),
+                             'mean_episode_distance': np.mean(episode_distance)
+            })
 
         # todo: switch to episodic and cover other locations. This log is only for episodic
         if iter % args.episode_log_interval == 0 and len(episode_rewards) > 1:
@@ -179,21 +228,26 @@ def main():
                            np.max(episode_rewards), dist_entropy,
                            value_loss, action_loss))
 
+        # --------------------- evaluate ----------------------------
         # todo: after adding episodic training, replace this
         # and len(episode_rewards) > 1 \
         if args.eval_interval is not None and iter % args.eval_interval == 0:
             logger.info('Evaluate')
 
             # todo: what is allow_early_resets? (False for main, True for eval)
-            eval_envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
+            eval_envs = make_vec_envs(args.env_name, args.seed, 1,  # args.num_processes,
                                       args.gamma, config.log_directory,
-                                      args.add_timestep, device, True, num_frame_stack=None,
-                                      ip=args.ip, port=args.port, wait_action=args.wait_action)
+                                      args.add_timestep, device,
+                                      allow_early_resets=False, num_frame_stack=None,
+                                      ip=args.ip, start_port=args.port,
+                                      wait_action=args.wait_action,
+                                      eval_mode=True)
 
-            vec_norm = get_vec_normalize(eval_envs)
-            if vec_norm is not None:
-                vec_norm.eval()
-                vec_norm.ob_rms = get_vec_normalize(envs).ob_rms
+            # vec_norm = get_vec_normalize(eval_envs)
+            #
+            # if vec_norm is not None:
+            #     vec_norm.eval()
+            #     vec_norm.ob_rms = get_vec_normalize(envs).ob_rms
 
             eval_episode_rewards = []
             rewards = []
@@ -203,8 +257,10 @@ def main():
                                                        actor_critic.recurrent_hidden_state_size, device=device)
             eval_masks = torch.zeros(args.num_processes, 1, device=device)
 
+            eval_distances = []
+
             # while len(eval_episode_rewards) < 10:
-            for eval_step in range(args.num_steps):
+            for eval_step in range(args.num_steps_eval):
                 with torch.no_grad():
                     _, action, _, eval_recurrent_hidden_states = actor_critic.act(
                         obs, eval_recurrent_hidden_states, eval_masks, deterministic=True)
@@ -216,14 +272,16 @@ def main():
                                            for done_ in done],
                                           dtype=torch.float32,
                                           device=device)
-                logger.info('eval step reward: {}'.format(reward))
+                logger.log(msg='eval step reward: {}'.format(reward), level=18)
+                logger.log(msg='eval step obs: {}'.format(obs), level=18)
 
-                if args.episodic:
-                    for info in infos:
-                        if 'episode' in info.keys():
-                            eval_episode_rewards.append(info['episode']['r'])
-                else:
-                    rewards.append(reward)
+                for info in infos:
+                    if 'episode' in info.keys():
+                        eval_episode_rewards.append(info['episode']['r'])
+                    if 'distance' in info.keys():
+                        eval_distances.append(info['distance'])
+
+                rewards.extend(reward)
 
             eval_envs.close()
 
@@ -233,8 +291,14 @@ def main():
                                    np.mean(eval_episode_rewards)))
             else:
                 logger.info("Evaluation using {} steps: mean reward {:.5f}\n".
-                            format(args.num_steps,
+                            format(args.num_steps_eval,
                                    np.mean(rewards)))
+
+            # update info
+            log_info.update({
+                'mean_eval_reward': np.mean(rewards),
+                'eval_average_distance': np.mean(eval_distances)
+            })
 
         if args.vis and iter % args.vis_interval == 0:
             try:
@@ -244,6 +308,66 @@ def main():
                                   args.algo, args.num_env_steps)
             except IOError:
                 pass
+
+        if iter % args.log_interval == 0:
+            logger.info('{}:{}  {}'.format(iter, num_updates, log_info))
+            if args.use_wandb:
+                wandb.log(log_info)
+
+
+    # -------------------------------------- testing -------------------------------------
+    if args.test:
+        logger.info('Evaluate')
+
+        # todo: what is allow_early_resets? (False for main, True for eval)
+        eval_envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
+                                  args.gamma, config.log_directory,
+                                  args.add_timestep, device,
+                                  allow_early_resets=False, num_frame_stack=None,
+                                  ip=args.ip, start_port=args.port, wait_action=args.wait_action,
+                                  eval_mode=True)
+
+        eval_episode_rewards = []
+        rewards = []
+
+        obs = eval_envs.reset()
+        eval_recurrent_hidden_states = torch.zeros(args.num_processes,
+                                                   actor_critic.recurrent_hidden_state_size, device=device)
+        eval_masks = torch.zeros(args.num_processes, 1, device=device)
+
+        # while len(eval_episode_rewards) < 10:
+        for eval_step in range(args.num_steps_eval):
+            with torch.no_grad():
+                _, action, _, eval_recurrent_hidden_states = actor_critic.act(
+                    obs, eval_recurrent_hidden_states, eval_masks, deterministic=True)
+
+            # Obser reward and next obs
+            obs, reward, done, infos = eval_envs.step(action)
+
+            eval_masks = torch.tensor([[0.0] if done_ else [1.0]
+                                       for done_ in done],
+                                      dtype=torch.float32,
+                                      device=device)
+            logger.info('eval step reward: {}'.format(reward))
+            logger.log(msg='eval step obs: {}'.format(obs), level=18)
+
+            if args.episodic:
+                for info in infos:
+                    if 'episode' in info.keys():
+                        eval_episode_rewards.append(info['episode']['r'])
+            else:
+                rewards.append(reward)
+
+        eval_envs.close()
+
+        if args.episodic:
+            logger.info("Evaluation using {} episodes: mean reward {:.5f}\n".
+                        format(len(eval_episode_rewards),
+                               np.mean(eval_episode_rewards)))
+        else:
+            logger.info("Evaluation using {} steps: mean reward {:.5f}\n".
+                        format(args.num_steps,
+                               np.mean(rewards)))
 
 
 if __name__ == "__main__":

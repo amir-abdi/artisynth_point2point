@@ -38,9 +38,11 @@ def make_env(env_id, seed, rank, log_dir, add_timestep, allow_early_resets, **kw
 
 def make_vec_envs(env_name, seed, num_processes, gamma, log_dir, add_timestep,
                   device, allow_early_resets, num_frame_stack=None,
-                  ip='localhost', port=8097, wait_action=0):
+                  start_port=8097, **kwargs):
+    # ip='localhost', wait_action=0, eval_mode=False, reset_step=20):
+    ports = range(start_port, start_port + num_processes)
     envs = [make_env(env_name, seed, i, log_dir, add_timestep, allow_early_resets,
-                     ip=ip, port=port, name=env_name, wait_action=wait_action)
+                     port=ports[i], **kwargs)
             for i in range(num_processes)]
 
     if len(envs) > 1:
@@ -48,17 +50,19 @@ def make_vec_envs(env_name, seed, num_processes, gamma, log_dir, add_timestep,
     else:
         envs = DummyVecEnv(envs)
 
-    if len(envs.observation_space.shape) == 1:
-        if gamma is None:
-            envs = VecNormalize(envs, ret=False)
-        else:
-            envs = VecNormalize(envs, gamma=gamma)
+    # if len(envs.observation_space.shape) == 1:
+    #     if gamma is None:
+    #         envs = VecNormalize(envs, ret=False)
+    #     else:
+    #         envs = VecNormalize(envs, gamma=gamma)
 
     envs = VecPyTorch(envs, device)
 
     if num_frame_stack is not None:
         envs = VecPyTorchFrameStack(envs, num_frame_stack, device)
     elif len(envs.observation_space.shape) == 3:
-        envs = VecPyTorchFrameStack(envs, 4, device)
+        envs = VecPyTorchFrameStack(envs, 2, device)
+
+
 
     return envs

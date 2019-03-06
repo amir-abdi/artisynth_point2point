@@ -34,3 +34,6 @@ output*
 .idea*
 src/__pycache__*
 results*
+src/wandb
+.ipynb_checkpoints/
+*.pyc

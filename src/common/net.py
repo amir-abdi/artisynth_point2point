@@ -3,6 +3,7 @@ import socket
 import json
 from socket import timeout as TimeoutException
 import struct
+import time
 
 from common import constants as c
 
@@ -25,11 +26,13 @@ class Net:
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.sock.setblocking(1)
                 self.sock.connect(server_address)
-                logger.info('Conneted to server at: {}'.format(server_address))
+                logger.log(msg='Conneted to server at: {}'.format(server_address),
+                           level=15)
                 break
             except ConnectionError as e:
                 logger.error("Could not connect to {}:{}".format(ip, port))
                 logger.error(e)
+                time.sleep(1)
                 # raise e
 
     def send(self, obj=None, message_type=''):
@@ -53,6 +56,9 @@ class Net:
         except BrokenPipeError as err:
             logger.exception('BrokenPipeError in send: {}'.format(err))
             self.connect(self.ip, self.port)
+        except ConnectionResetError as err:
+            logger.exception('ConnectionResetError in send: {}'.format(err))
+            self.connect(self.ip, self.port)
 
     def receive_message(self, msg_type, retry_type=None):
         while True:
@@ -63,9 +69,9 @@ class Net:
                 else:
                     raise Exception("Expected {}, but got {} packet.".format(msg_type, rec_dict['msg_type']))
             except Exception as e:
-                logger.error('Error in receive_message: %s.', str(e))
+                # logger.error('Error in receive_message: %s.', str(e))
                 self.connect(self.ip, self.port)
-                logger.info("Retry msg={}, retry={}".format(msg_type, retry_type))
+                # logger.info("Retry msg={}, retry={}".format(msg_type, retry_type))
                 self.send(message_type=retry_type)
                 # return self.receive_message(msg_type, retry_type=retry_type)
 
@@ -90,7 +96,7 @@ class Net:
                 rec_bytes.extend(self.sock.recv(rec_int - len(rec_bytes)))
             rec = bytearray(rec_bytes).decode("utf-8")
         except TimeoutException as err:
-            logger.error("Error: Socket timeout in receive")
+            # logger.error("Error: Socket timeout in receive")
             raise err
         except ValueError as err:
             if rec_int_bytes == b'\n':

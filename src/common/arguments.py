@@ -19,7 +19,7 @@ def get_args():
                         help='port to run the server on (default: 4545)')
     parser.add_argument('--visdom-port', type=int, default=8097,
                         help='port to run the server on (default: 8097)')
-    parser.add_argument('--episode-log-interval', type=int, default=10,
+    parser.add_argument('--episode-log-interval', type=int, default=1,
                         help='log interval for episodes (default: 10)')
     parser.add_argument('--log-interval', type=int, default=10,
                         help='log interval, one log per n updates (default: 10)')
@@ -27,6 +27,16 @@ def get_args():
                         help='Wait (seconds) for action to take place and environment to stabilize.')
     parser.add_argument('--episodic', action='store_true', default=False,
                         help='Whether task is episodic.')
+    parser.add_argument('--test', action='store_true', default=False,
+                        help='Only evaluate a trained model.')
+    parser.add_argument('--use-wandb', action='store_true', default=False,
+                        help='Use wandb for train logging.')
+    parser.add_argument('--resume-wandb', action='store_true', default=False,
+                        help='Resume the wandb training log.')
+    parser.add_argument('--reset-step', type=int, default=-1,
+                        help='Reset envs every n iters.')
+    parser.add_argument('--hidden-layer-size', type=int, default=64,
+                        help='Number of neurons in all hidden layers.')
 
     parser.add_argument('--algo', default='ppo',
                         help='algorithm to use: a2c | ppo | acktr')
@@ -55,7 +65,9 @@ def get_args():
     parser.add_argument('--num-processes', type=int, default=1,
                         help='how many training CPU processes to use (default: 16)')
     parser.add_argument('--num-steps', type=int, default=5,
-                        help='number of forward steps in A2C (default: 5)')
+                        help='number of forward steps (default: 5)')
+    parser.add_argument('--num-steps-eval', type=int, default=5,
+                        help='number of forward steps in evaluation (default: 5)')
     parser.add_argument('--ppo-epoch', type=int, default=4,
                         help='number of ppo epochs (default: 4)')
     parser.add_argument('--num-mini-batch', type=int, default=32,
