@@ -1,5 +1,7 @@
 import os
 import pprint
+import numpy as np
+import time
 
 from rl.agents.dqn import NAFAgent
 from rl.random import OrnsteinUhlenbeckProcess
@@ -12,11 +14,11 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
 
-from environments.point_model2d_env import *
+from artisynth.envs.point_model2d_env import PointModel2dEnv, PointModel2dProcessor
 from common.utilities import *
 from common import config as c
 
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # logging parameters
@@ -51,6 +53,7 @@ MEMORY_SIZE = 50000
 
 # Testing parameters
 NUM_EPISODES = 500
+
 
 def smooth_logistic(x):
     return 1 / (1 + K.exp(-0.1 * x))

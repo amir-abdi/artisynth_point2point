@@ -168,9 +168,6 @@ def main():
                     distances.append(info['distance'])
                     vels.append(info['vel'])
 
-            # if step % args.reset_step == 0:
-            #     envs.reset()
-
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0]
                                        for done_ in done])
@@ -229,8 +226,7 @@ def main():
                            value_loss, action_loss))
 
         # --------------------- evaluate ----------------------------
-        # todo: after adding episodic training, replace this
-        # and len(episode_rewards) > 1 \
+        # Evaluate on a single environment
         if args.eval_interval is not None and iter % args.eval_interval == 0:
             logger.info('Evaluate')
 
@@ -242,12 +238,6 @@ def main():
                                       ip=args.ip, start_port=args.port,
                                       wait_action=args.wait_action,
                                       eval_mode=True)
-
-            # vec_norm = get_vec_normalize(eval_envs)
-            #
-            # if vec_norm is not None:
-            #     vec_norm.eval()
-            #     vec_norm.ob_rms = get_vec_normalize(envs).ob_rms
 
             eval_episode_rewards = []
             rewards = []

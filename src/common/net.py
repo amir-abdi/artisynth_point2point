@@ -83,14 +83,8 @@ class Net:
             rec_int_bytes = []
             while len(rec_int_bytes) < 2:
                 rec_int_bytes.extend(self.sock.recv(2 - len(rec_int_bytes)))
-                # if rec_int_bytes[0] == 10:
-                #     rec_int_bytes = rec_int_bytes[1:]
-            # logger.debug(str(rec_int_bytes))
-            # rec_int = int(bytearray(rec_int_bytes))
             rec_int = int.from_bytes(bytes(rec_int_bytes), byteorder='big')
             logger.debug("Received packet size: %i", rec_int)
-            # if rec_int_bytes[:1] == b'\n':
-            #     rec_int += 1
             rec_bytes = []
             while len(rec_bytes) < rec_int:
                 rec_bytes.extend(self.sock.recv(rec_int - len(rec_bytes)))
