@@ -24,14 +24,11 @@ import artisynth.core.mechmodels.MotionTargetComponent;
 import artisynth.core.mechmodels.MuscleExciter;
 import artisynth.core.mechmodels.Point;
 import artisynth.core.mechmodels.PointList;
-import artisynth.core.mechmodels.RigidBody;
 import artisynth.core.modelbase.ComponentList;
 import artisynth.core.modelbase.ComponentListImpl;
 import artisynth.core.modelbase.ModelComponent;
 import artisynth.core.modelbase.ReferenceList;
 import artisynth.core.modelbase.RenderableComponentList;
-import artisynth.core.modelbase.StepAdjustment;
-import artisynth.core.workspace.RootModel;
 import artisynth.models.rl.InverseModel;
 import artisynth.models.rl.Log;
 import artisynth.models.rl.NetworkHandler;
@@ -189,9 +186,8 @@ public class RlTrackingController extends TrackingController {
 		// or empty until reaching a setExcitation thingy?
 		if (jo_receive != null)
 			applyMessage(jo_receive);
-		// System.out.println("dt = "+(t1-t0)+" h = "+ TimeBase.round(t1 - t0));
 		if (getDebug()) {
-			System.out.println("\n--- t = " + t1 + " ---"); // cleans up the
+			log("\n--- t = " + t1 + " ---"); // cleans up the
 															// console
 		}
 
@@ -205,7 +201,7 @@ public class RlTrackingController extends TrackingController {
 			log("advance: jo_receive = " + jo_receive.getString("type"));
 			switch (jo_receive.getString("type")) {
 			case "reset":
-				//myInverseModel.resetTargetPosition();
+				myInverseModel.resetTargetPosition();
 				break;
 			case "setExcitations":
 				setExcitations(jo_receive.getJSONArray("excitations"));
@@ -217,6 +213,9 @@ public class RlTrackingController extends TrackingController {
 				break;
 			case "getStateSize":
 				sendStateSize();
+				break;
+			case "getActionSize":
+				sendActionSize();
 				break;
 			default:
 				Log.log("Unknown packet type: " + jo_receive.getString("type"));
@@ -254,7 +253,23 @@ public class RlTrackingController extends TrackingController {
 			log(jo);
 			networkHandler.send(jo);
 		} catch (JSONException e) {
-			System.out.println("Error in send: " + e.getMessage());
+			log("Error in send: " + e.getMessage());
+		}
+	}
+	
+	private void sendActionSize() {
+		Log.log("Sending action size");
+		int action_size = numExcitations();
+		Log.log("state_size: " + action_size);
+		
+		JSONObject jo = new JSONObject();
+		try {
+			jo.put("type", "actionSize");
+			jo.put("actionSize", action_size);
+			log(jo);
+			networkHandler.send(jo);
+		} catch (JSONException e) {
+			log("Error in sendActionSize: " + e.getMessage());
 		}
 	}
 
@@ -276,7 +291,7 @@ public class RlTrackingController extends TrackingController {
 			// jo.put("targets", targets_array);
 
 			for (MotionTargetComponent c : targets) {
-				double[] posVel = point2Vec(c, initPosition);
+				double[] posVel = point2Vec(c, initPosition, false);
 				//log("posVel real: " + c.getName() + ' ' 
 				//		+ posVel[0] + ' ' + posVel[1] + ' '
 				//		+ posVel[2] + ' ');
@@ -286,7 +301,7 @@ public class RlTrackingController extends TrackingController {
 			// JSONArray sources_array = point2JsonArray(sources, initPosition);
 			// jo.put("sources", sources_array);
 			for (MotionTargetComponent c : sources) {
-				double[] posVel = point2Vec(c, initPosition);
+				double[] posVel = point2Vec(c, initPosition, false);
 				//log("posVel real: " + c.getName() + ' ' 
 				//		+ posVel[0] + ' ' + posVel[1] + ' '
 				//		+ posVel[2] + ' ');
@@ -303,12 +318,15 @@ public class RlTrackingController extends TrackingController {
 	}
 
 	private double[] point2Vec(MotionTargetComponent component,
-			Vector3d initPos) throws JSONException {
+			Vector3d initPos, Boolean toCm) throws JSONException {
 		VectorNd stateVec = new VectorNd(new double[6]);
 		((Point) component).getState(stateVec, 0);
 
-		for (int i = 0; i < 3; ++i)
+		for (int i = 0; i < 3; ++i) {
 			stateVec.getBuffer()[i] -= initPos.get(i);
+			if (toCm)
+				stateVec.getBuffer()[i] *= 100;
+		}
 		return stateVec.getBuffer();
 	}
 
@@ -324,6 +342,7 @@ public class RlTrackingController extends TrackingController {
 	double minPosY = 10000;
 	double minPosZ = 10000;
 
+	@SuppressWarnings("unused")
 	private JSONArray point2JsonArray(
 			ArrayList<MotionTargetComponent> components, Vector3d initPos)
 			throws JSONException {
@@ -333,8 +352,6 @@ public class RlTrackingController extends TrackingController {
 			VectorNd stateVec = new VectorNd(new double[6]);
 			((Point) c).getState(stateVec, 0);
 
-//			log("before" + stateVec.getBuffer()[0] + " "
-//					+ stateVec.getBuffer()[1] + " " + stateVec.getBuffer()[2]);
 			for (int i = 0; i < 3; ++i)
 				stateVec.getBuffer()[i] -= initPos.get(i);
 			log(initPos);
@@ -346,31 +363,6 @@ public class RlTrackingController extends TrackingController {
 			jo_temp.put("name", c.getName());
 
 			jarray.put(jo_temp);
-
-//			if (Math.abs(stateVec.getBuffer()[3]) > maxVelX)
-//				maxVelX = Math.abs(stateVec.getBuffer()[3]);
-//			if (Math.abs(stateVec.getBuffer()[4]) > maxVelY)
-//				maxVelY = Math.abs(stateVec.getBuffer()[4]);
-//			if (Math.abs(stateVec.getBuffer()[5]) > maxVelZ)
-//				maxVelZ = Math.abs(stateVec.getBuffer()[5]);
-//			log("Max vel values: " + maxVelX + ", " + maxVelY + ", " + maxVelZ);
-//
-//			if (stateVec.getBuffer()[0] > maxPosX)
-//				maxPosX = stateVec.getBuffer()[0];
-//			if (stateVec.getBuffer()[1] > maxPosY)
-//				maxPosY = stateVec.getBuffer()[1];
-//			if (stateVec.getBuffer()[2] > maxPosZ)
-//				maxPosZ = stateVec.getBuffer()[2];
-//			log("Max pos values: " + maxPosX + ", " + maxPosY + ", " + maxPosZ);
-//
-//			if (stateVec.getBuffer()[0] < minPosX)
-//				minPosX = stateVec.getBuffer()[0];
-//			if (stateVec.getBuffer()[1] < minPosY)
-//				minPosY = stateVec.getBuffer()[1];
-//			if (stateVec.getBuffer()[2] < minPosZ)
-//				minPosZ = stateVec.getBuffer()[2];
-//			log("Min Pos values: " + minPosX + ", " + minPosY + ", " + minPosZ);
-
 		}
 
 		return jarray;
@@ -389,6 +381,6 @@ public class RlTrackingController extends TrackingController {
 	}
 
 	public void log(Object obj) {
-		System.out.println(obj);
+		//System.out.println(obj);
 	}
 }

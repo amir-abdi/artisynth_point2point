@@ -126,6 +126,6 @@ public class NetworkReceiveHanlder extends Thread {
 		return jo;
 	}
 	public void log(Object obj) {
-		System.out.println(obj);
+		//System.out.println(obj);
 	}
 }

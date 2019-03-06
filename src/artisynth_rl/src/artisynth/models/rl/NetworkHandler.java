@@ -9,19 +9,36 @@ import java.net.Socket;
 import org.apache.hadoop.io.DataOutputOutputStream;
 import org.json.JSONObject;
 
+import artisynth.models.rl.PointModel2dRl.DemoType;
+
 public class NetworkHandler extends Thread {
 	private Socket socket = null;
 	NetworkReceiveHanlder networkReceiveHandler; 
 //	PrintWriter out;
 	DataOutputStream out;
-	int port;
+	int port = 4545;
 
-	public NetworkHandler(int port) {
+	public NetworkHandler(String[] args) {
+		parseArgs(args);		
+	}
+	
+	public NetworkHandler(int port) {		
 		this.port = port;
 	}
 
 	public NetworkHandler() {
-		this(4545);
+		this(new String[0]);
+	}
+	
+	private void parseArgs(String[] args) {
+		for (int i = 0; i< args.length; i+=2)
+		{
+			if (args[i].equals("-port"))
+			{
+				this.port = Integer.parseInt(args[i+1]);				
+			}
+			
+		}		
 	}
 
 	public void run() {
@@ -85,6 +102,6 @@ public class NetworkHandler extends Thread {
 	}
 	
 	public void log(Object obj) {
-		System.out.println(obj);
+		//System.out.println(obj);
 	}
 }
