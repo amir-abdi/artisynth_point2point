@@ -8,3 +8,5 @@ GET_STATE_STR = 'getState'
 STATE_STR = 'state'
 
 TYPE_STR = 'type'
+
+RESET_STR = 'reset'

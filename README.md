@@ -56,13 +56,18 @@ switch to Classpath tab, and add the artisynth_rl project to the Classpath.
 ## Running
 
 ### Step 1
-Run ArtiSynth with the following arguments:
+Run ArtiSynth with the following arguments for the point-to-point toy environment:
 
+    artisynth -model artisynth.models.rl.PointModelGenericRl \
+        [ -port 7024 -num 6 -demoType 2 -muscleOptLen 0.1 -radius 5 ] \
+        -play -noTimeline
 
-    -model artisynth.models.rl.PointModelGenericRl
-       [ -port 7024 -num 6 -demoType 2 -muscleOptLen 0.1 -radius 5 ] 
-    -play 
-    -noTimeline
+Or run with the following for the LumbarSpine environment:
+
+    artisynth -model artisynth.models.lumbarSpine.RlLumbarSpine \
+        [ -port 7024 ] 
+        -play -noTimeline
+    
 where 
 - `port` is the port number for the tcp socket and should 
 match the port set in `src/point_model2d_naf_main.py`, 

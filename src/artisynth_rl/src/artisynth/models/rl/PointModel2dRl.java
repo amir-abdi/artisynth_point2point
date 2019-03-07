@@ -6,12 +6,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import artisynth.core.gui.ControlPanel;
 import artisynth.core.inverse.ForceTarget;
 import artisynth.core.inverse.ForceTargetTerm;
+import artisynth.core.inverse.Log;
+import artisynth.core.inverse.NetworkHandler;
 import artisynth.core.inverse.TrackingController;
 import artisynth.core.materials.LinearAxialMuscle;
 import artisynth.core.mechmodels.AxialSpring;
@@ -46,7 +49,9 @@ import java.lang.Math;
 public class PointModel2dRl extends RootModel {
 	// NumericInputProbe inputProbe; don't need a probe. just set the target
 	// position
-	static double point_generate_radius = 4.11; // ultimate position with current settings of max muscle excitations
+	static double point_generate_radius = 4.11; // ultimate position with
+												// current settings of max
+												// muscle excitations
 	public static final Vector3d zero = new Vector3d();
 	Vector3d disturbance = new Vector3d();
 
@@ -65,8 +70,8 @@ public class PointModel2dRl extends RootModel {
 	protected MechModel mech;
 	protected FrameMarker center, center_ref;
 
-	String[] muscleLabels = new String[] { "n", "nne", "ne", "ene", "e", "ese", "se", "sse", "s", "ssw", "sw", "wsw",
-			"w", "wnw", "nw", "nnw"
+	String[] muscleLabels = new String[] { "n", "nne", "ne", "ene", "e", "ese",
+			"se", "sse", "s", "ssw", "sw", "wsw", "w", "wnw", "nw", "nnw"
 
 	};
 
@@ -144,7 +149,8 @@ public class PointModel2dRl extends RootModel {
 			break;
 		}
 		default: {
-			System.err.println("PointModel, unknown demo type: " + myDemoType.toString());
+			System.err.println(
+					"PointModel, unknown demo type: " + myDemoType.toString());
 		}
 		}
 		addModel(mech);
@@ -262,7 +268,7 @@ public class PointModel2dRl extends RootModel {
 				case "reset":
 					resetRefPosition();
 					break;
-				case "excitations":
+				case "setExcitations":
 					setExcitations(jo_receive);
 					break;
 				case "getState":
@@ -292,8 +298,16 @@ public class PointModel2dRl extends RootModel {
 		RigidBody body_follower = mech.rigidBodies().get("body_follower");
 		try {
 			jo_send_state.put("type", "state");
-			jo_send_state.put("ref_pos", body_ref.getPosition());
-			jo_send_state.put("follow_pos", body_follower.getPosition());
+
+			double[] refPosArr = new double[3];
+			body_ref.getPosition().get(refPosArr);
+			jo_send_state.put("ref_pos", refPosArr);
+
+			double[] followPosArr = new double[3];
+			body_follower.getPosition().get(followPosArr);
+			jo_send_state.put("follow_pos", followPosArr);
+
+//			jo_send_state.put("follow_pos", body_follower.getPosition());
 			// print(jo.toString ());
 			networkHandler.send(jo_send_state);
 		} catch (JSONException e) {
@@ -310,46 +324,10 @@ public class PointModel2dRl extends RootModel {
 
 	private void resetRefPosition() {
 		RigidBody body_ref = mech.rigidBodies().get("body_ref");
-		Point3d pos = getRandomTarget(new Point3d(0, 0, 0), point_generate_radius);
+		Point3d pos = getRandomTarget(new Point3d(0, 0, 0),
+				point_generate_radius);
 		body_ref.setPosition(pos);
 	}
-
-	/*
-	 * double prev_time_step = 0; public StepAdjustment advanceOld(double t0, double
-	 * t1, int flags) { if (t0 >= prev_time_step + 2) { RigidBody body_follower =
-	 * mech.rigidBodies ().get ("body_follower"); RigidBody body_ref =
-	 * mech.rigidBodies ().get ("body_ref");
-	 * 
-	 * Point3d pos = getRandomTarget (new Point3d (0, 0,0), MUSCLE_SPREAD_RADIUS);
-	 * body_ref .setPosition (pos); //System.out.println ("Location: \t" + pos);
-	 * prev_time_step = t0;
-	 * 
-	 * JSONObject jo_send_state = new JSONObject (); try { jo_send_state.put
-	 * ("type", "state"); jo_send_state.put ("ref_pos", body_ref.getPosition ());
-	 * jo_send_state.put ("follow_pos", body_follower.getPosition ());
-	 * //print(jo.toString ()); if (!networkHandler.send (jo_send_state)) return
-	 * super.advance (t0, t1, flags); } catch (JSONException e) {
-	 * System.out.println("Error in send: " + e.getMessage ()); return super.advance
-	 * (t0, t1, flags); }
-	 * 
-	 * try { JSONObject jo_rec = networkHandler.receive (); if (jo_rec.getString
-	 * ("type").equals ("excitations")) setExcitations(jo_rec); } catch
-	 * (JSONException e) { print("Error in fillExcitations: " + e.getMessage ()); }
-	 * catch(Exception e) { System.out.println("Error in rec: " + e.getMessage ());
-	 * return super.advance (t0, t1, flags); }
-	 * 
-	 * JSONObject jo_send_result = new JSONObject (); try { jo_send_result.put
-	 * ("type", "results"); jo_send_result.put ("ref_pos", body_ref.getPosition ());
-	 * jo_send_result.put ("follow_pos", body_follower.getPosition ());
-	 * //print(jo.toString ()); networkHandler.send (jo_send_result); } catch
-	 * (JSONException e) { System.out.println("Error in send result: " +
-	 * e.getMessage ()); }
-	 * 
-	 * }
-	 * 
-	 * // System.out.println (model.rigidBodies ().get ("body_follower").getPosition
-	 * ()); return super.advance (t0, t1, flags); }
-	 */
 
 	private void setExcitations(JSONObject jo_rec) throws JSONException {
 		for (String label : muscleLabels) {
@@ -357,7 +335,8 @@ public class PointModel2dRl extends RootModel {
 			{
 				log("exication set: " + label);
 				if (m instanceof Muscle)
-					((Muscle) m).setExcitation(jo_rec.getDouble(label));
+					((Muscle) m).setExcitation(jo_rec
+							.getJSONObject("excitations").getDouble(label));
 			}
 		}
 		log("Exications filled");
@@ -488,13 +467,14 @@ public class PointModel2dRl extends RootModel {
 //			disturb[i] = 0.5 + (i%6+1) * (sign)*((double)i)/4;
 //		}
 
-		double[] disturb = { 1.5, -0.5, 2.5, -0.5, -0.4, -0.5, 0.5, 0.5, 2.5, -0.2, 0.5 };
+		double[] disturb = { 1.5, -0.5, 2.5, -0.5, -0.4, -0.5, 0.5, 0.5, 2.5,
+				-0.2, 0.5 };
 
 		for (int i = 0; i < num; i++) {
 			double degree = 2 * Math.PI * ((double) i / num) + disturb[i];
 
-			Point3d pnt = new Point3d((len + disturb[i]) * Math.sin(degree), 0.0,
-					(len + disturb[i]) * Math.cos(degree));
+			Point3d pnt = new Point3d((len + disturb[i]) * Math.sin(degree),
+					0.0, (len + disturb[i]) * Math.cos(degree));
 			pnt.transform(X.R);
 			Particle fixed = new Particle(mass, pnt);
 			fixed.setDynamic(false);
@@ -510,7 +490,8 @@ public class PointModel2dRl extends RootModel {
 		for (int i = 0; i < num; i++) {
 			double degree = 2 * Math.PI * ((double) i / num);
 
-			Point3d pnt = new Point3d(len * Math.sin(degree), 0.0, len * Math.cos(degree));
+			Point3d pnt = new Point3d(len * Math.sin(degree), 0.0,
+					len * Math.cos(degree));
 			pnt.transform(X.R);
 			Particle fixed = new Particle(mass, pnt);
 			fixed.setDynamic(false);
@@ -560,7 +541,8 @@ public class PointModel2dRl extends RootModel {
 			for (AxialSpring s : mech.axialSprings()) {
 				if (s instanceof Muscle) {
 					Muscle m = (Muscle) s;
-					String name = (m.getName() == null ? "m" + m.getNumber() : m.getName().toUpperCase());
+					String name = (m.getName() == null ? "m" + m.getNumber()
+							: m.getName().toUpperCase());
 					panel.addWidget(name, m, "excitation", 0.0, 1.0);
 				}
 			}
@@ -569,7 +551,8 @@ public class PointModel2dRl extends RootModel {
 	}
 
 	public void addTrackingController() {
-		TrackingController myTrackingController = new TrackingController(mech, "tcon");
+		TrackingController myTrackingController = new TrackingController(mech,
+				"tcon");
 		for (AxialSpring s : mech.axialSprings()) {
 			if (s instanceof Muscle) {
 				myTrackingController.addExciter((Muscle) s);
@@ -577,12 +560,15 @@ public class PointModel2dRl extends RootModel {
 		}
 
 		myTrackingController.addL2RegularizationTerm();
-		MotionTargetComponent target = myTrackingController.addMotionTarget(center);
+		MotionTargetComponent target = myTrackingController
+				.addMotionTarget(center);
 		RenderProps.setPointRadius((Renderable) target, 0.525);
 
 		if (useReactionForceTargetP) {
-			ForceTargetTerm forceTerm = new ForceTargetTerm(myTrackingController);
-			ForceTarget ft = forceTerm.addForceTarget(mech.bodyConnectors().get("center_constraint"));
+			ForceTargetTerm forceTerm = new ForceTargetTerm(
+					myTrackingController);
+			ForceTarget ft = forceTerm.addForceTarget(
+					mech.bodyConnectors().get("center_constraint"));
 			ft.setArrowSize(2);
 			RenderProps.setLineStyle(ft, LineStyle.CYLINDER);
 			RenderProps.setLineRadius(ft, 0.25);
@@ -597,7 +583,8 @@ public class PointModel2dRl extends RootModel {
 	}
 
 	public void loadProbes() {
-		String probeFileFullPath = ArtisynthPath.getWorkingDir().getPath() + "/0probes.art";
+		String probeFileFullPath = ArtisynthPath.getWorkingDir().getPath()
+				+ "/0probes.art";
 		System.out.println("Loading Probes from File: " + probeFileFullPath);
 
 		try {

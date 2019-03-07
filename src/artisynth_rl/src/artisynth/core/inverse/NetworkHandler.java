@@ -1,4 +1,4 @@
-package artisynth.models.rl;
+package artisynth.core.inverse;
 
 import java.io.DataOutputStream;
 import java.io.IOException;

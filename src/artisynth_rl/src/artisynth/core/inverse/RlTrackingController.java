@@ -29,9 +29,6 @@ import artisynth.core.modelbase.ComponentListImpl;
 import artisynth.core.modelbase.ModelComponent;
 import artisynth.core.modelbase.ReferenceList;
 import artisynth.core.modelbase.RenderableComponentList;
-import artisynth.models.rl.InverseModel;
-import artisynth.models.rl.Log;
-import artisynth.models.rl.NetworkHandler;
 import maspack.matrix.Vector3d;
 import maspack.matrix.VectorNd;
 
@@ -117,8 +114,7 @@ public class RlTrackingController extends TrackingController {
 				ModelComponent.class, this);
 
 		// list of target points that store/show the location of motion targets
-		// for
-		// points
+		// for points
 		targetPoints = new PointList<TargetPoint>(TargetPoint.class,
 				"targetPoints");
 		// always show this component, even if it's empty:

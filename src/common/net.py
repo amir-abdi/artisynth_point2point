@@ -14,11 +14,11 @@ class Net:
     def __init__(self, ip, port):
         self.ip = ip
         self.port = port
-        self.connect(ip, port)
+        self.connect()
 
-    def connect(self, ip, port):
+    def connect(self):
         # logger.info('Connecting to %s:%i', ip, port)
-        server_address = (ip, port)
+        server_address = (self.ip, self.port)
 
         # todo: not sure whether to set blocking or not
         while True:
@@ -30,7 +30,7 @@ class Net:
                            level=15)
                 break
             except ConnectionError as e:
-                logger.error("Could not connect to {}:{}".format(ip, port))
+                logger.error("Could not connect to {}:{}".format(self.ip, self.port))
                 logger.error(e)
                 time.sleep(1)
                 # raise e

@@ -1,8 +1,7 @@
-import time
 import json
 import sys
-import socket
 import numpy as np
+import os
 from socket import timeout as TimeoutException
 
 from rl.core import Env
@@ -10,57 +9,19 @@ from rl.core import Space
 from rl.core import Processor
 
 from common.utilities import begin_time
-from common import config as c
+from common import config as config
+from common import constants as c
+from common.net import Net
 
 EPSILON = 1E-12
 
 
 class PointModel2dEnv(Env):
-    class ActionSpace(Space):
-        def __init__(self, muscle_labels):
-            self.dof_action = len(muscle_labels)
-            self.shape = (self.dof_action,)
-            self.muscle_labels = muscle_labels
-
-        def sample(self, seed=None):
-            if seed is not None:
-                np.random.seed(seed)
-            values = np.random.rand(self.dof_action)
-            return dict(zip(self.muscle_labels, values))
-
-        def contains(self, x):
-            if x.ndim != 1:
-                return False
-            if x.shape[0] != self.dof_action:
-                return False
-            if np.max(x) > 1 or np.min(x) < 0:
-                return False
-            return True
-
-    class ObservationSpace(Space):
-        def __init__(self, dof_obs=6, radius=4.11):
-            self.shape = (dof_obs,)
-            self.dof_obs = dof_obs
-            self.radius = radius
-
-        def sample(self, seed=None):
-            if seed is not None:
-                np.random.seed(seed)
-            return (np.random.rand(self.dof_obs) - 0.5) * self.radius * 2
-
-        def contains(self, x):
-            if x.ndim != 1:
-                return False
-            if x.shape[0] != self.dof_obs:
-                return False
-            if np.max(x) > self.radius or np.min(x) < -self.radius:
-                return False
-            return True
-
     def __init__(self, muscle_labels=None, dof_observation=6, success_thres=0.1,
                  verbose=2, log_to_file=True, log_file='log', agent=None,
-                 include_follow=True, port=6006):
-        self.sock = None
+                 include_follow=True, ip='localhost', port=6006):
+        self.net = Net(ip, port)
+
         self.verbose = verbose
         self.success_thres = success_thres
         self.ref_pos = None
@@ -81,8 +42,8 @@ class PointModel2dEnv(Env):
 
     @staticmethod
     def create_log_file(log_file):
-        log_folder = c.env_log_directory
-        path = log_folder / (log_file + begin_time)
+        log_folder = config.env_log_directory
+        path = os.path.join(log_folder, (log_file + begin_time))
         return open(str(path), "w"), str(path)
 
     def log(self, obj, verbose=2, same_line=False):
@@ -98,103 +59,8 @@ class PointModel2dEnv(Env):
         else:
             print(obj) if verbose <= self.verbose else lambda: None
 
-    def send(self, obj=None, message_type=''):
-        if not obj:
-            obj = dict()
-        try:
-            obj.update({'type': message_type})
-            json_obj = json.dumps(eval(str(obj)), ensure_ascii=False).encode(
-                'utf-8')
-            objlen = json_obj.__len__()
-            self.sock.send(objlen.to_bytes(4, byteorder='big'))
-            bytes_sent = self.sock.send(json_obj)
-            while bytes_sent < objlen:
-                print('Data not sent completely: ' + str(bytes_sent) + ' < ' +
-                      str(json_obj.__len__()))
-                bytes_sent = self.sock.send(json_obj)
-            self.log('obj sent: ' + str(obj))
-        except NameError as err:
-            self.log('error in send: ' + str(err), verbose=1)
-
-    def receive(self, wait_time=0.0):
-        # import struct
-        try:
-            self.sock.settimeout(wait_time)
-            rec_int_bytes = []
-            while len(rec_int_bytes) < 4:
-                rec_int_bytes.extend(self.sock.recv(4 - len(rec_int_bytes)))
-                if rec_int_bytes[0] == 10:
-                    rec_int_bytes = rec_int_bytes[1:]
-            rec_int = int(bytearray(rec_int_bytes).decode('utf-8'))
-            if rec_int_bytes[:1] == b'\n':
-                rec_int += 1
-            rec_bytes = []
-            while len(rec_bytes) < rec_int:
-                rec_bytes.extend(self.sock.recv(rec_int - len(rec_bytes)))
-            rec = bytearray(rec_bytes).decode("utf-8")
-        except TimeoutException:
-            self.log("Error: Socket timeout in receive", verbose=1)
-            return None
-        except ValueError as err:
-            if rec_int_bytes == b'\n':
-                return None
-            else:
-                self.log(err)
-                raise err
-        except:
-            self.log("Unexpected error:" + str(sys.exc_info()), verbose=1)
-            raise
-        finally:
-            self.sock.settimeout(0)
-        self.log('obj rec: ' + str(rec))
-        try:
-            data_dict_result = json.loads(rec.strip())
-            return data_dict_result
-        except json.decoder.JSONDecodeError as e:
-            self.log('error in receive: ' + str(e), verbose=1)
-            return None
-
     def augment_action(self, action):
         return dict(zip(self.muscle_labels, np.nan_to_num(action)))
-
-    def connect(self):
-        self.log('Connecting...', verbose=1)
-        port_number = self.port
-        server_address = ('localhost', port_number)
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setblocking(1)
-        self.sock.connect(server_address)
-        self.log('Conneted to server at: {}'.format(server_address), verbose=1)
-
-        import re
-        send_name = re.sub('[./:*?]', '',
-                           str(self.log_file_name).strip('0123456789'))
-        self.set_name(send_name)
-
-    def set_name(self, name):
-        self.send({'name': name}, message_type='setName')
-
-    def get_state(self):
-        self.send(message_type='getState')
-        rec_dict = self.receive(0.5)
-        while True:
-            try:
-                if rec_dict['type'] == 'state':
-                    break
-                else:
-                    raise Exception
-            except:
-                self.log('Error in get_state receive data. Reconnecting...',
-                         verbose=1)
-                self.send(message_type='getState')
-                rec_dict = self.receive(2)
-        try:
-            state = self.parse_state(rec_dict)
-            return state
-        except:
-            self.log('Error in parsing get_state: ' + str(sys.exc_info()),
-                     verbose=1)
-            raise
 
     def set_state(self, state):
         self.set_state(state[:3], state[4:])
@@ -212,26 +78,23 @@ class PointModel2dEnv(Env):
         return state
 
     def state_json_to_array(self, state_dict: dict):
-        state_arr = state_dict['ref_pos']
+        state_arr = np.asarray(state_dict['ref_pos'])
         if self.include_follow:
             state_arr = np.concatenate((state_arr, state_dict['follow_pos']))
         return state_arr
 
     def reset(self):
-        self.send(message_type='reset')
+        self.net.send(message_type=c.RESET_STR)
         self.ref_pos = None
         self.prev_distance = None
         self.log('Reset', verbose=0)
-        state = self.get_state()
-        state = self.state_json_to_array(state)
+        state_dict = self.get_state_dict()
+        state = self.state_json_to_array(state_dict)
         return state
 
     def render(self, mode='human', close=False):
         # our environment does not need rendering
         pass
-
-    def close(self):
-        self.sock.close()
 
     def seed(self, seed=None):
         np.random.seed(seed)
@@ -250,18 +113,25 @@ class PointModel2dEnv(Env):
             else:
                 return constant / (distance + EPSILON), False
 
+    def get_state_dict(self):
+        self.net.send(message_type=c.GET_STATE_STR)
+        state_dict = self.net.receive_message(c.STATE_STR, retry_type=c.GET_STATE_STR)
+        return state_dict
+
     @staticmethod
     def calculate_distance(a, b):
         return np.sqrt(np.sum((b - a) ** 2))
 
     def step(self, action):
         action = self.augment_action(action)
-        self.send(action, 'excitations')
+        # self.net.send(action, 'excitations')
+        self.net.send({'excitations': action}, message_type='setExcitations')
+
         # time.sleep(0.3)
-        state = self.get_state()
+        state = self.get_state_dict()
         if state is not None:
-            new_ref_pos = state['ref_pos']
-            new_follower_pos = state['follow_pos']
+            new_ref_pos = np.asarray(state['ref_pos'])
+            new_follower_pos = np.asarray(state['follow_pos'])
 
             distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             if self.prev_distance is not None:
@@ -343,6 +213,46 @@ class PointModel2dEnv(Env):
             else:
                 return -1, False
 
+    class ActionSpace(Space):
+        def __init__(self, muscle_labels):
+            self.dof_action = len(muscle_labels)
+            self.shape = (self.dof_action,)
+            self.muscle_labels = muscle_labels
+
+        def sample(self, seed=None):
+            if seed is not None:
+                np.random.seed(seed)
+            values = np.random.rand(self.dof_action)
+            return dict(zip(self.muscle_labels, values))
+
+        def contains(self, x):
+            if x.ndim != 1:
+                return False
+            if x.shape[0] != self.dof_action:
+                return False
+            if np.max(x) > 1 or np.min(x) < 0:
+                return False
+            return True
+
+    class ObservationSpace(Space):
+        def __init__(self, dof_obs=6, radius=4.11):
+            self.shape = (dof_obs,)
+            self.dof_obs = dof_obs
+            self.radius = radius
+
+        def sample(self, seed=None):
+            if seed is not None:
+                np.random.seed(seed)
+            return (np.random.rand(self.dof_obs) - 0.5) * self.radius * 2
+
+        def contains(self, x):
+            if x.ndim != 1:
+                return False
+            if x.shape[0] != self.dof_obs:
+                return False
+            if np.max(x) > self.radius or np.min(x) < -self.radius:
+                return False
+            return True
 
 class PointModel2dProcessor(Processor):
     """Abstract base class for implementing processors.

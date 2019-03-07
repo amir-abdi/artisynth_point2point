@@ -138,9 +138,7 @@ def main(train_test_flag='train'):
     muscle_labels = ["m" + str(i) for i in np.array(range(NUM_MUSCLES))]
 
     training = False
-    weight_filename = str(
-        c.trained_directory / '{}_weights.h5f'.format(
-            model_name))
+    weight_filename = os.path.join(c.trained_directory, '{}_weights.h5f'.format(model_name))
     log_file_name = begin_time + '_' + model_name
 
     while True:
@@ -150,11 +148,9 @@ def main(train_test_flag='train'):
                                   include_follow=False, port=PORT,
                                   muscle_labels=muscle_labels,
                                   log_file=log_file_name)
-            env.connect()
             break
         except ConnectionRefusedError as e:
             print("Server not started: ", e)
-            env.sock.close()
             time.sleep(10)
     try:
         env.seed(123)
@@ -192,7 +188,7 @@ def main(train_test_flag='train'):
         load_weights(agent, weight_filename)
 
         tensorboard = RlTensorBoard(
-            log_dir=str(c.tensorboard_log_directory / log_file_name),
+            log_dir=os.path.join(c.tensorboard_log_directory, log_file_name),
             histogram_freq=HISTOGRAM_FREQ,
             batch_size=BATCH_SIZE,
             write_graph=True,
@@ -200,7 +196,7 @@ def main(train_test_flag='train'):
             embeddings_layer_names=None, embeddings_metadata=None,
             agent=agent)
         csv_logger = keras.callbacks.CSVLogger(
-            str(c.agent_log_directory / log_file_name),
+            os.path.join(c.agent_log_directory, log_file_name),
             append=False, separator=',')
 
         if train_test_flag == 'train':
@@ -229,7 +225,7 @@ def main(train_test_flag='train'):
         if training:
             save_weights(agent, weight_filename)
         print("Error in main code:", str(e))
-        env.sock.close()
+        env.net.sock.close()
         raise e
 
 

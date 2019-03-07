@@ -59,43 +59,6 @@ class SpineEnv(gym.Env):
         logger.info('State array size: {}'.format(obs.shape))
         self.obs_size = obs.shape[0]
 
-        # init observation space
-        # todo: set the right limits for velocity and position as we normalize values
-        # before sending to agent
-
-        # todo: hack for now
-        # self.obs_size = 6
-        # if self.include_velocity:
-        #     self.obs_size += 6
-        # if self.include_excitations:
-        #     self.obs_size += self.action_size  # self.get_state_size()
-        # if self.include_current:
-        #     self.obs_size += 12
-        # logger.log(msg='Observation size: {}'.format(self.obs_size), level=15)
-
-        # logger.debug('state size %i', obs_size)
-        # self.observation_space = spaces.Tuple((
-        #     spaces.Box(low=LOW_VEL, high=HIGH_VEL, shape=(NUM_TARGETS*3,)),
-        #     spaces.Box(low=LOW_POS, high=HIGH_POS, shape=(NUM_TARGETS*3,)),
-        #     spaces.Box(low=LOW_EXCITATION, high=HIGH_EXCITATION, shape=(NUM_MUSCLES,))
-        # ))
-
-        # self.observation_space = spaces.Dict({
-        #     'ribcageMotionTarget_l': spaces.Box(low=LOW_VEL, high=HIGH_VEL, shape=(6,)),
-        #     'ribcageMotionTarget_r': spaces.Box(low=LOW_VEL, high=HIGH_VEL, shape=(6,)),
-        #     'ribcageMotionTarget_l_ref': spaces.Box(low=LOW_VEL, high=HIGH_VEL, shape=(6,)),
-        #     'ribcageMotionTarget_r_ref': spaces.Box(low=LOW_VEL, high=HIGH_VEL, shape=(6,)),
-        #     'excitations': spaces.Box(low=LOW_EXCITATION, high=HIGH_EXCITATION, shape=(NUM_MUSCLES,))
-        # })
-
-        # self.observation_space = np.zeros(self.obs_size)
-
-        # todo[obsSize]: revert this
-        # todo: get new observation limits
-        # if self.include_excitations:
-        #     self.observation_space = spaces.Box(low=LOW_VEL, high=HIGH_VEL,
-        #                                         shape=[self.obs_size], dtype=np.float32)
-        # else:
         self.observation_space = spaces.Box(low=-0.2, high=+0.2,
                                             shape=[self.obs_size], dtype=np.float32)
 
@@ -110,12 +73,11 @@ class SpineEnv(gym.Env):
         if ip != 'localhost':
             raise NotImplementedError
 
-        command = 'artisynth -model artisynth.models.lumbarSpine.RlLumbarSpine [ -port {} ] -play -noTimeline'. \
-            format(port)
+        command = 'artisynth -model artisynth.models.lumbarSpine.RlLumbarSpine ' + \
+                  '[ -port {} ] -play -noTimeline'. \
+                      format(port)
         command_list = command.split(' ')
-        # shell_call(
-        #     'artisynth -model artisynth.models.lumbarSpine.RlLumbarSpine [ -port {} ] -play -noTimeline'.
-        #         format(port), )
+
         import subprocess
         FNULL = open(os.devnull, 'w')
         subprocess.Popen(command_list, stdout=FNULL, stderr=subprocess.STDOUT)
@@ -240,16 +202,14 @@ class SpineEnv(gym.Env):
         return state_array, reward, done, info
 
     def reset(self):
-        self.net.connect(self.ip, self.port)
-        self.net.send(message_type='reset')
+        self.net.connect()
+        self.net.send(message_type=c.RESET_STR)
         # logger.info('Reset')
-        # return self.get_state_tensor()
         state_dict = self.get_state_dict()
         logger.log(msg=['Targets: %s %s',
                         (['{:.4f}'.format(x) for x in state_dict[COMPS[2]]]),
                         ['{:.4f}'.format(x) for x in state_dict[COMPS[3]]]], level=15)
         return self.state_dic_to_array(state_dict)
-        # return state_dict
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -272,15 +232,7 @@ class SpineEnv(gym.Env):
             else:
                 observation_vector.extend(js[COMPS[i]][:3])
             count += 1
-        # assert count == len(COMPS)
 
-        # # todo[obsSize] uncomment following
-        # if self.include_excitations:
-        #     excitations = np.asarray(js['excitations'])
-        #     observation_vector.extend(excitations)
-        #     assert count * 6 + len(excitations) == self.observation_space.shape[0]
-
-        # print('observation_vector', observation_vector)
         return np.asarray(observation_vector)
 
     def state_json_to_array_old(self, js):
@@ -305,32 +257,6 @@ class SpineEnv(gym.Env):
         assert count == observation_vector.shape[0]
 
         return observation_vector
-
-    # def state_json_to_dict(self, js):
-    #     logger.debug('state json: %s', str(js))
-    #
-    #     count = 0
-    #     for target in js['targets']:
-    #         pos_vel = np.asarray(target['posVel'])
-    #         self.observation_space['pos'][POSITION_DIM * count:POSITION_DIM * (count + 1)] = \
-    #             pos_vel[:POSITION_DIM]
-    #         self.observation_space['vel'][POSITION_DIM * count:POSITION_DIM * (count + 1)] = \
-    #             pos_vel[POSITION_DIM:POSITION_DIM + VELOCITY_DIM]
-    #         count += 1
-    #
-    #     for target in js['sources']:
-    #         pos_vel = np.asarray(target['posVel'])
-    #         self.observation_space['pos'][POSITION_DIM * count:POSITION_DIM * (count + 1)] = \
-    #             pos_vel[:POSITION_DIM]
-    #         self.observation_space['vel'][POSITION_DIM * count:POSITION_DIM * (count + 1)] = \
-    #             pos_vel[POSITION_DIM:POSITION_DIM + VELOCITY_DIM]
-    #         count += 1
-    #
-    #     assert count == NUM_TARGETS * 2
-    #
-    #     self.observation_space['excitations'] = np.asarray(js['excitations'])
-    #
-    #     return self.observation_space
 
     def render(self, mode='gui', close=False):
         pass

@@ -15,6 +15,7 @@ import maspack.properties.PropertyList;
 import maspack.render.RenderProps;
 import maspack.render.Renderer.PointStyle;
 import artisynth.core.gui.ControlPanel;
+import artisynth.core.inverse.InverseModel;
 import artisynth.core.inverse.MotionTargetTerm;
 import artisynth.core.inverse.RlTrackingController;
 import artisynth.core.mechmodels.MotionTargetComponent;
@@ -25,7 +26,6 @@ import artisynth.core.modelbase.ControllerBase;
 import artisynth.core.modelbase.Model;
 import artisynth.core.workspace.DriverInterface;
 import artisynth.core.workspace.PullController;
-import artisynth.models.rl.InverseModel;
 
 public class RlInvLumbarSpine extends LumbarSpine2 implements InverseModel {
 
