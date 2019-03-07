@@ -36,22 +36,26 @@ artisynth (java) is through a tcp socket and the packets are sent as serialized
 JSON objects. To enable json support in java, include the java-json.jar
 (available in lib/ directory) in runtime libraries of the artisynth_rl project.
 
-## Installation
+## Dependencies
 
 - Install ArtiSynth following its 
 [installation guide](https://www.artisynth.org/Documentation/InstallGuide)
-- Install [TensorFlow](https://www.tensorflow.org/install/)
-- Install [keras](https://keras.io/#installation)
-- Checkout [keras-rl](https://github.com/amir-abdi/keras-rl)
-- Checkout [artisynth_rl](https://github.com/amir-abdi/artisynth_rl)
-- Include keras-rl directory as python path for your project. You can do this
+- [TensorFlow](https://www.tensorflow.org/install/)
+- [keras](https://keras.io/#installation)
+- [keras-rl](https://github.com/amir-abdi/keras-rl)
+- [pytorch](https://pytorch.org/)
+
+Include keras-rl directory as python path for your project. You can do this
 either by adding the keras-rl library root to the PYTHONPATH environment 
 variable, or add
 the library as an external dependency in your IDE.
-- Add `artisynth_rl/artisynth_src` to Classpath of the artisynth project. 
+
+Add `artisynth_rl/artisynth_src` to Classpath of the artisynth project. 
 If you are using eclipse, import the artisynth_rl into eclipse, 
 open the **Run Configurations** for the artisynth_core project, 
 switch to Classpath tab, and add the artisynth_rl project to the Classpath.
+
+Add `artisynth_core/bin` to the PATH environment variable, so that you can run the `artisynth` command.
 
 ## Running
 
