@@ -1,4 +1,4 @@
-# artisynth_rl
+# Point-to-Point toy project for ArtiSynth
 This is the code for **"Muscle Excitation Estimation in Biomechanical Simulation 
 Using NAF Reinforcement Learning"** paper submitted to the Computational 
 Biomechanics for Medicine XIII, A MICCAI 2018 Workshop, Granada, Spain, 
